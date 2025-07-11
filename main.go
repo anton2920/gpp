@@ -112,8 +112,6 @@ func main() {
 	file := l.FileSet.AddFile(filename, l.FileSet.Base(), len(src))
 	l.Scanner.Init(file, src, nil, scanner.ScanComments)
 
-	var buf bytes.Buffer
-
 	done := false
 	for !done {
 		switch l.Peek().GoToken {
@@ -124,9 +122,14 @@ func main() {
 			if ParseGofaComment(&l, &comment) {
 				var structure Struct
 				if ParseStruct(&l, &structure) {
+					if l.Error != nil {
+						fmt.Fprintf(os.Stderr, "Failed to parse structure: %v\n", l.Error)
+					}
 					for t := TargetNone + 1; t < TargetCount; t++ {
 						if comment.Targets[t] {
+							var buf bytes.Buffer
 							Target2Generator[t](&buf, &structure)
+							fmt.Printf("%s\n\n", buf.String())
 						}
 					}
 				}
@@ -134,11 +137,5 @@ func main() {
 			}
 		}
 		l.Next()
-	}
-
-	if l.Error == nil {
-		fmt.Printf("Generated: %q\n", buf.String())
-	} else {
-		fmt.Printf("Error = %v, error count = %d\n", l.Error, l.Scanner.ErrorCount)
 	}
 }

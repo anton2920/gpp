@@ -6,9 +6,10 @@ import (
 )
 
 type Type struct {
-	Package string
-	Name    string
-	Kind    TypeKind
+	Package   string
+	Name      string
+	Kind      TypeKind
+	InnerKind TypeKind
 }
 
 type TypeArg struct {
@@ -21,21 +22,25 @@ type TypeKind int
 const (
 	TypeKindNone = TypeKind(iota)
 	TypeKindInt
+	TypeKindUint
 	TypeKindInt32
+	TypeKindUint32
 	TypeKindInt64
+	TypeKindUint64
 	TypeKindPointer
 	TypeKindString
 	TypeKindSlice
 	TypeKindUnknown
 )
 
-var TypeKind2Name = [...]string{
-	TypeKindInt:     "int",
-	TypeKindInt32:   "int32",
-	TypeKindInt64:   "int64",
-	TypeKindPointer: "*T",
-	TypeKindString:  "string",
-	TypeKindSlice:   "[]T",
+var TypeKind2String = [...]string{
+	TypeKindInt:    "int",
+	TypeKindUint:   "uint",
+	TypeKindInt32:  "int32",
+	TypeKindUint32: "uint32",
+	TypeKindInt64:  "int64",
+	TypeKindUint64: "uint64",
+	TypeKindString: "string",
 }
 
 func (t *Type) String() string {
@@ -74,6 +79,7 @@ func ParseType(l *Lexer, t *Type) bool {
 		}
 
 		if ParseType(l, t) {
+			t.InnerKind = t.Kind
 			t.Kind = TypeKindSlice
 			return true
 		}
@@ -103,12 +109,18 @@ func ParseType(l *Lexer, t *Type) bool {
 			default:
 				/* TODO(anton2920): expand list of known types. */
 				t.Kind = TypeKindUnknown
-			case "int", "uint":
+			case "int":
 				t.Kind = TypeKindInt
-			case "int32", "uint32", "ID":
+			case "uint":
+				t.Kind = TypeKindUint
+			case "int32", "ID":
 				t.Kind = TypeKindInt32
-			case "int64", "uint64":
+			case "uint32":
+				t.Kind = TypeKindUint32
+			case "int64":
 				t.Kind = TypeKindInt64
+			case "uint64":
+				t.Kind = TypeKindUint64
 			case "string":
 				t.Kind = TypeKindString
 			}

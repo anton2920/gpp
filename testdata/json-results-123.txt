@@ -1,0 +1,29 @@
+goos: freebsd
+goarch: amd64
+cpu: Intel(R) Core(TM) i7-6700K CPU @ 4.00GHz
+BenchmarkJSONMarshal-4     	 2638195	       475.3 ns/op
+BenchmarkJSONMarshal-4     	 2481501	       495.1 ns/op
+BenchmarkJSONMarshal-4     	 2503525	       472.1 ns/op
+BenchmarkJSONMarshal-4     	 2524110	       486.3 ns/op
+BenchmarkJSONMarshal-4     	 2466152	       478.8 ns/op
+BenchmarkJSONMarshal-4     	 2553164	       489.6 ns/op
+BenchmarkJSONMarshal-4     	 2546229	       477.6 ns/op
+BenchmarkJSONMarshal-4     	 2556285	       465.0 ns/op
+BenchmarkJSONEncoder-4     	 2927610	       409.2 ns/op
+BenchmarkJSONEncoder-4     	 2924143	       417.5 ns/op
+BenchmarkJSONEncoder-4     	 2638292	       414.8 ns/op
+BenchmarkJSONEncoder-4     	 2940770	       422.5 ns/op
+BenchmarkJSONEncoder-4     	 2792169	       408.9 ns/op
+BenchmarkJSONEncoder-4     	 2923815	       435.4 ns/op
+BenchmarkJSONEncoder-4     	 2742574	       425.2 ns/op
+BenchmarkJSONEncoder-4     	 2946379	       424.2 ns/op
+BenchmarkJSONSerialize-4   	13075228	        87.37 ns/op
+BenchmarkJSONSerialize-4   	13104994	        87.40 ns/op
+BenchmarkJSONSerialize-4   	15255447	        89.17 ns/op
+BenchmarkJSONSerialize-4   	13673266	        84.63 ns/op
+BenchmarkJSONSerialize-4   	14423391	        87.27 ns/op
+BenchmarkJSONSerialize-4   	13458366	        84.84 ns/op
+BenchmarkJSONSerialize-4   	13354322	        87.93 ns/op
+BenchmarkJSONSerialize-4   	14378671	        87.69 ns/op
+PASS
+ok  	_/home/anton/Projects/meta/testdata	37.036s
