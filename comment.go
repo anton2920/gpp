@@ -11,13 +11,13 @@ type Comment struct {
 }
 
 func ParseGofaComment(l *Lexer, comment *Comment) bool {
-	const prefix = "//gofa:generate"
+	const prefix = "//gofa:gpp"
 
-	/* TODO(anton2920): make it in line with other parsers. */
-	if (l.Error != nil) || (l.Token != token.COMMENT) || (!strings.StartsWith(l.Literal, prefix)) {
+	tok := l.Peek()
+	if (l.Error != nil) || (tok.GoToken != token.COMMENT) || (!strings.StartsWith(tok.Literal, prefix)) {
 		return false
 	}
-	lit := l.Literal[len(prefix):]
+	lit := tok.Literal[len(prefix):]
 
 	done := false
 	for !done {
@@ -36,5 +36,6 @@ func ParseGofaComment(l *Lexer, comment *Comment) bool {
 		lit = rest
 	}
 
+	l.Next()
 	return true
 }

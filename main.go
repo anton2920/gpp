@@ -7,8 +7,13 @@ import (
 	"go/token"
 	"io"
 	"os"
+	"strconv"
 
 	"github.com/anton2920/gofa/log"
+)
+
+const (
+	DefaultCap = 16
 )
 
 func ReadEntireFile(filename string) ([]byte, error) {
@@ -30,30 +35,64 @@ func ReadEntireFile(filename string) ([]byte, error) {
 	return contents, nil
 }
 
-func ParseToken(l *Lexer, tok token.Token) bool {
+func ParseToken(l *Lexer, expectedTok token.Token) bool {
 	if l.Error != nil {
 		return false
 	}
 
-	if l.Next() == tok {
+	if expectedTok != token.COMMENT {
+		for l.Peek().GoToken == token.COMMENT {
+			l.Next()
+		}
+	}
+
+	tok := l.Peek()
+	if tok.GoToken == expectedTok {
+		l.Next()
 		return true
 	}
 
-	l.Error = fmt.Errorf("%s:%d:%d: expected %q, got %q (%q)", l.Position.Filename, l.Position.Line, l.Position.Column, tok, l.Token, l.Literal)
+	l.Error = fmt.Errorf("%s:%d:%d: expected %q, got %q (%q)", tok.Position.Filename, tok.Position.Line, tok.Position.Column, expectedTok, tok.GoToken, tok.Literal)
 	return false
+}
+
+func ParseIdentList(l *Lexer, idents *[]string) bool {
+	var ident string
+
+	for ParseIdent(l, &ident) {
+		*idents = append(*idents, ident)
+		if !ParseToken(l, token.COMMA) {
+			l.Error = nil
+			return true
+		}
+	}
+
+	return len(*idents) != 0
 }
 
 func ParseIdent(l *Lexer, ident *string) bool {
 	if ParseToken(l, token.IDENT) {
-		*ident = l.Literal
+		*ident = l.Prev().Literal
 		return true
+	}
+	return false
+}
+
+func ParseInt(l *Lexer, n *int) bool {
+	if ParseToken(l, token.INT) {
+		var err error
+		*n, err = strconv.Atoi(l.Prev().Literal)
+		if err != nil {
+			l.Error = fmt.Errorf("failed to parse int: %v", err)
+		}
+		return err == nil
 	}
 	return false
 }
 
 func ParseString(l *Lexer, s *string) bool {
 	if ParseToken(l, token.STRING) {
-		*s = l.Literal
+		*s = l.Prev().Literal
 		return true
 	}
 	return false
@@ -77,7 +116,7 @@ func main() {
 
 	done := false
 	for !done {
-		switch l.Next() {
+		switch l.Peek().GoToken {
 		case token.EOF:
 			done = true
 		case token.COMMENT:
@@ -91,8 +130,10 @@ func main() {
 						}
 					}
 				}
+				continue
 			}
 		}
+		l.Next()
 	}
 
 	if l.Error == nil {
