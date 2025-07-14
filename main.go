@@ -7,14 +7,13 @@ import (
 	"go/token"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/anton2920/gofa/strings"
 )
 
-const (
-	DefaultCap = 16
-)
+const GOFA = "github.com/anton2920/gofa/"
 
 const Stdin = "<stdin>"
 
@@ -160,7 +159,7 @@ func main() {
 			for j := 0; j < len(names); j++ {
 				name := names[j]
 				if strings.EndsWith(name, ".go") {
-					files = append(files, fmt.Sprintf("%s%c%s", path, os.PathSeparator, name))
+					files = append(files, filepath.Join(path, name))
 				}
 			}
 			dir.Close()
@@ -201,7 +200,7 @@ func main() {
 					var structure Struct
 					if ParseStruct(&l, &structure) {
 						if l.Error != nil {
-							Errorf("Failed to parse structure: %v\n", l.Error)
+							Errorf("Failed to parse structure: %v", l.Error)
 							return false
 						}
 
@@ -214,15 +213,15 @@ func main() {
 				}
 				l.Error = nil
 			case token.PACKAGE:
-				var p string
-				if ParsePackage(&l, &p) {
-					g.PackageBegin(p)
+				if !ParsePackage(&l, &g.Package) {
+					Errorf("Failed to parse package: %v", l.Error)
+					return false
 				}
 			}
 			l.Next()
 		}
 
-		if g.ShouldDump {
+		if g.ShouldDump() {
 			name := GeneratedName(f.Name())
 			file, err := os.Create(name)
 			if err != nil {
@@ -231,6 +230,8 @@ func main() {
 			defer file.Close()
 
 			g.Dump(file)
+
+			fmt.Println(f.Name())
 		}
 		return true
 	})

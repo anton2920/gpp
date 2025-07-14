@@ -2,14 +2,19 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
+	stdjson "encoding/json"
 	"testing"
 	"time"
+
+	"github.com/anton2920/gofa/encoding/json"
 )
 
 var testUser = User{FirstName: "FirstName", LastName: "LastName", Email: "user@example.com", Password: "qwerty", CreatedOn: time.Now().Unix()}
 
 func TestJSONSerialize(t *testing.T) {
+	var s json.Serializer
+	s.Buf = make([]byte, 512)
+
 	now := time.Now().Unix()
 	tests := [...]User{
 		testUser,
@@ -17,23 +22,23 @@ func TestJSONSerialize(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		expected, err := json.Marshal(test)
+		expected, err := stdjson.Marshal(test)
 		if err != nil {
 			t.Fatalf("Failed to marshal user into JSON: %v", err)
 		}
 
-		actual := make([]byte, 0, 1024)
-		JSONSerializeUser(&actual, &test)
+		s.Reset()
+		PutUserJSON(&s, &test)
 
-		if bytes.Compare(expected, actual) != 0 {
-			t.Errorf("Expected '%s', got '%s'", expected, actual)
+		if bytes.Compare(expected, s.Bytes()) != 0 {
+			t.Errorf("Expected '%s', got '%s'", expected, s.String())
 		}
 	}
 }
 
 func BenchmarkJSONMarshal(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_, err := json.Marshal(testUser)
+		_, err := stdjson.Marshal(testUser)
 		if err != nil {
 			b.Errorf("Failed to marshal user into JSON: %v", err)
 		}
@@ -42,7 +47,7 @@ func BenchmarkJSONMarshal(b *testing.B) {
 
 func BenchmarkJSONEncoder(b *testing.B) {
 	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
+	enc := stdjson.NewEncoder(&buf)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -53,12 +58,13 @@ func BenchmarkJSONEncoder(b *testing.B) {
 	}
 }
 
-func BenchmarkJSONSerialize(b *testing.B) {
-	buffer := make([]byte, 0, 512)
+func BenchmarkPutJSON(b *testing.B) {
+	var s json.Serializer
+	s.Buf = make([]byte, 512)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		buffer = buffer[:0]
-		JSONSerializeUser(&buffer, &testUser)
+		s.Reset()
+		PutUserJSON(&s, &testUser)
 	}
 }

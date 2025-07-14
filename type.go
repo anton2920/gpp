@@ -115,7 +115,7 @@ func ParseType(l *Lexer, t *Type) bool {
 				t.Kind = TypeKindUint
 			case "int32", "ID":
 				t.Kind = TypeKindInt32
-			case "uint32":
+			case "uint32", "Flags":
 				t.Kind = TypeKindUint32
 			case "int64":
 				t.Kind = TypeKindInt64
