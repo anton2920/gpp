@@ -3,150 +3,56 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"path/filepath"
 	"unicode"
 )
 
-type Generator func(*bytes.Buffer, *Struct)
+type Generator struct {
+	Buffer     bytes.Buffer
+	ShouldDump bool
+}
 
 const (
 	JSONGeneratorPrefix = "JSONSerialize"
 )
 
-func SerialGenerator(w *bytes.Buffer, s *Struct) {
-	w.Write([]byte("TODO(anton2920): serial generator\n"))
+func (g *Generator) Dump(w io.Writer) (int64, error) {
+	if g.ShouldDump {
+		return io.Copy(w, bytes.NewReader(g.Buffer.Bytes()))
+	}
+	return 0, nil
 }
 
-func JSONGenerateField(w *bytes.Buffer, name string, field *StructField) {
-	var takeAddress, takeElement, cast bool
-
-	kind := field.Type.Kind
-
-	w.WriteRune('\t')
-	if field.Type.Kind == TypeKindUnknown {
-		if len(field.Type.Package) > 0 {
-			w.WriteString(field.Type.Package)
-			w.WriteRune('.')
-		}
-		w.WriteString(JSONGeneratorPrefix)
-		w.WriteString(field.Type.Name)
-		takeAddress = true
-	} else {
-		w.WriteString(JSONGeneratorPrefix)
-		if kind == TypeKindSlice {
-			kind = field.Type.InnerKind
-			takeElement = true
-		}
-		w.WriteRune(unicode.ToUpper(rune(TypeKind2String[kind][0])))
-		w.WriteString(TypeKind2String[kind][1:])
-		cast = field.Type.Name != TypeKind2String[kind]
-	}
-	w.WriteString(`(buffer, `)
-	if cast {
-		w.WriteString(TypeKind2String[kind])
-		w.WriteRune('(')
-	}
-	if takeAddress {
-		w.WriteRune('&')
-	}
-	w.WriteString(name)
-	w.WriteRune('.')
-	w.WriteString(field.Name)
-	if cast {
-		w.WriteRune(')')
-	}
-	if takeElement {
-		w.WriteString(`[i]`)
-	}
-	w.WriteRune(')')
-	w.WriteRune('\n')
+func (g *Generator) Printf(format string, args ...interface{}) (int, error) {
+	g.ShouldDump = true
+	return fmt.Fprintf(&g.Buffer, format, args...)
 }
 
-func JSONGenerateStruct(w *bytes.Buffer, s *Struct) {
-	name := VariableName(s.Name, false)
-
-	w.WriteString(`func `)
-	w.WriteString(JSONGeneratorPrefix)
-	w.WriteString(s.Name)
-	w.WriteRune('(')
-	w.WriteString(`buffer *[]byte, `)
-	w.WriteString(name)
-	w.WriteString(` *`)
-	w.WriteString(s.Name)
-	w.WriteString(") {\n")
-
-	w.WriteString("\t*buffer = append(*buffer, `{`...)\n")
-	for i := 0; i < len(s.Fields); i++ {
-		field := &s.Fields[i]
-		if field.Tag == "`json:\"-\"`" {
-			continue
-		}
-		if i > 0 {
-			w.WriteString("\t*buffer = append(*buffer, `,`...)\n")
-		}
-
-		w.WriteString("\t*buffer = append(*buffer, `\"")
-		w.WriteString(field.Name)
-		w.WriteString("\":`...)\n")
-
-		if field.Type.Kind != TypeKindSlice {
-			JSONGenerateField(w, name, field)
-		} else {
-			w.WriteString("\t*buffer = append(*buffer, `[`...)\n")
-
-			w.WriteString("\tfor i := 0; i < len(")
-			w.WriteString(field.Name)
-			w.WriteString("); i++ {\n")
-			{
-				w.WriteString("\t\tif i > 0 {\n")
-				w.WriteString("\t\t\t*buffer = append(*buffer, `,`...)\n")
-				w.WriteString("\t\t}\n")
-				w.WriteRune('\t')
-				JSONGenerateField(w, name, field)
-			}
-			w.WriteString("\t\t*buffer = append(*buffer, `]`...)\n")
-
-			w.WriteString("\t}\n")
-		}
-	}
-	w.WriteString("\t*buffer = append(*buffer, `}`...)\n")
-
-	w.WriteString("}\n")
+func (g *Generator) Write(b []byte) (int, error) {
+	g.ShouldDump = true
+	return g.Buffer.Write(b)
 }
 
-func JSONGenerateArray(w *bytes.Buffer, s *Struct) {
-	name := VariableName(s.Name, true)
-
-	w.WriteString(`func `)
-	w.WriteString(JSONGeneratorPrefix)
-	w.WriteString(s.Name)
-	w.WriteString(`s(`)
-	w.WriteString(`buffer *[]byte, `)
-	w.WriteString(name)
-	w.WriteString(` []`)
-	w.WriteString(s.Name)
-	w.WriteString(") {\n")
-
-	w.WriteString("\t*buffer = append(*buffer, `[`...)\n")
-	w.WriteString("\tfor i := 0; i < len(")
-	w.WriteString(name)
-	w.WriteString("); i++ {\n")
-	{
-		w.WriteString("\t\t" + JSONGeneratorPrefix)
-		w.WriteString(s.Name)
-		w.WriteString(`(buffer, `)
-		w.WriteString(name)
-		w.WriteString("[i])\n")
-	}
-	w.WriteString("\t}\n")
-	w.WriteString("\t*buffer = append(*buffer, `]`...)\n")
-
-	w.WriteString("}\n")
+func (g *Generator) WriteRune(r rune) (int, error) {
+	g.ShouldDump = true
+	return g.Buffer.WriteRune(r)
 }
 
-func JSONGenerator(w *bytes.Buffer, s *Struct) {
-	JSONGenerateStruct(w, s)
-	w.WriteRune('\n')
-	JSONGenerateArray(w, s)
+func (g *Generator) WriteString(s string) (int, error) {
+	g.ShouldDump = true
+	return g.Buffer.WriteString(s)
+}
+
+func (g *Generator) PackageBegin(name string) {
+	g.Printf("package %s\n", name)
+	g.ShouldDump = false
+}
+
+func GeneratedName(filename string) string {
+	ext := filepath.Ext(filename)
+	base := filename[:len(filename)-len(ext)]
+	return base + "_gpp" + ext
 }
 
 /* NOTE(anton2920): this supports only ASCII. */

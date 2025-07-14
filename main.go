@@ -9,18 +9,35 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/anton2920/gofa/log"
+	"github.com/anton2920/gofa/strings"
 )
 
 const (
 	DefaultCap = 16
 )
 
+const Stdin = "<stdin>"
+
+func ReadEntireStdin() ([]byte, error) {
+	var buf bytes.Buffer
+
+	if _, err := io.Copy(&buf, os.Stdin); err != nil {
+		return nil, fmt.Errorf("failed to read from stdin: %v", err)
+	}
+
+	return buf.Bytes(), nil
+}
+
 func ReadEntireFile(filename string) ([]byte, error) {
+	if filename == Stdin {
+		return ReadEntireStdin()
+	}
+
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open %q: %v", filename, err)
 	}
+	defer f.Close()
 
 	st, err := f.Stat()
 	if err != nil {
@@ -98,44 +115,123 @@ func ParseString(l *Lexer, s *string) bool {
 	return false
 }
 
+func Usage() {
+	fmt.Fprintf(os.Stderr, "usage: gpp [file ...]")
+	os.Exit(1)
+}
+
+func Errorf(format string, args ...interface{}) {
+	if format[len(format)-1] != '\n' {
+		format += "\n"
+	}
+	fmt.Fprintf(os.Stderr, format, args...)
+}
+
+func Fatalf(format string, args ...interface{}) {
+	Errorf(format, args...)
+	os.Exit(1)
+}
+
 func main() {
-	const filename = "testdata/user.go"
+	var files []string
 
-	var l Lexer
+	fileSet := token.NewFileSet()
+	sources := make(map[int][]byte)
 
-	src, err := ReadEntireFile(filename)
-	if err != nil {
-		log.Fatalf("Failed to read entire file: %v", err)
+	paths := os.Args[1:]
+	for i := 0; i < len(paths); i++ {
+		path := paths[i]
+		st, err := os.Stat(path)
+		if err != nil {
+			Fatalf("Failed to stat %q: %v", path, err)
+		}
+
+		if !st.IsDir() {
+			files = append(files, path)
+		} else {
+			dir, err := os.Open(path)
+			if err != nil {
+				Fatalf("Failed to open directory %q: %v", path, err)
+			}
+			names, err := dir.Readdirnames(-1)
+			if err != nil {
+				Fatalf("Failed to read names of directory %q entries: %v", path, err)
+			}
+			for j := 0; j < len(names); j++ {
+				name := names[j]
+				if strings.EndsWith(name, ".go") {
+					files = append(files, fmt.Sprintf("%s%c%s", path, os.PathSeparator, name))
+				}
+			}
+			dir.Close()
+		}
 	}
 
-	l.FileSet = token.NewFileSet()
-	file := l.FileSet.AddFile(filename, l.FileSet.Base(), len(src))
-	l.Scanner.Init(file, src, nil, scanner.ScanComments)
+	if len(files) == 0 {
+		files = append(files, Stdin)
+	}
+	for i := 0; i < len(files); i++ {
+		file := files[i]
 
-	done := false
-	for !done {
-		switch l.Peek().GoToken {
-		case token.EOF:
-			done = true
-		case token.COMMENT:
-			var comment Comment
-			if ParseGofaComment(&l, &comment) {
-				var structure Struct
-				if ParseStruct(&l, &structure) {
-					if l.Error != nil {
-						fmt.Fprintf(os.Stderr, "Failed to parse structure: %v\n", l.Error)
-					}
-					for t := TargetNone + 1; t < TargetCount; t++ {
-						if comment.Targets[t] {
-							var buf bytes.Buffer
-							Target2Generator[t](&buf, &structure)
-							fmt.Printf("%s\n\n", buf.String())
+		src, err := ReadEntireFile(file)
+		if err != nil {
+			Fatalf("Failed to read entire file %q: %v", file, err)
+		}
+
+		base := fileSet.Base()
+		fileSet.AddFile(file, base, len(src))
+		sources[base] = src
+	}
+
+	fileSet.Iterate(func(f *token.File) bool {
+		var g Generator
+		var l Lexer
+
+		l.FileSet = fileSet
+		l.Scanner.Init(f, sources[f.Base()], nil, scanner.ScanComments)
+
+		done := false
+		for !done {
+			switch l.Peek().GoToken {
+			case token.EOF:
+				done = true
+			case token.COMMENT:
+				var comment Comment
+				if ParseGofaComment(&l, &comment) {
+					var structure Struct
+					if ParseStruct(&l, &structure) {
+						if l.Error != nil {
+							Errorf("Failed to parse structure: %v\n", l.Error)
+							return false
+						}
+
+						for i := 0; i < len(comment.Formats); i++ {
+							format := comment.Formats[i]
+							format.Generate(&g, &structure)
 						}
 					}
+					continue
 				}
-				continue
+				l.Error = nil
+			case token.PACKAGE:
+				var p string
+				if ParsePackage(&l, &p) {
+					g.PackageBegin(p)
+				}
 			}
+			l.Next()
 		}
-		l.Next()
-	}
+
+		if g.ShouldDump {
+			name := GeneratedName(f.Name())
+			file, err := os.Create(name)
+			if err != nil {
+				Errorf("Failed to create generated file %q: %v", name, err)
+			}
+			defer file.Close()
+
+			g.Dump(file)
+		}
+		return true
+	})
 }

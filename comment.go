@@ -7,7 +7,7 @@ import (
 )
 
 type Comment struct {
-	Targets [TargetCount]bool
+	Formats []Format
 }
 
 func ParseGofaComment(l *Lexer, comment *Comment) bool {
@@ -27,10 +27,9 @@ func ParseGofaComment(l *Lexer, comment *Comment) bool {
 		}
 		s = strings.TrimSpace(s)
 
-		for t := TargetNone + 1; t < TargetCount; t++ {
-			if s == Target2String[t] {
-				comment.Targets[t] = true
-			}
+		switch {
+		case strings.StartsWith(s, "json"):
+			comment.Formats = append(comment.Formats, &FormatJSON{})
 		}
 
 		lit = rest

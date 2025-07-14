@@ -13,7 +13,7 @@ func TestJSONSerialize(t *testing.T) {
 	now := time.Now().Unix()
 	tests := [...]User{
 		testUser,
-		User{FirstName: `Quote"quote`, LastName: "LastName", Email: "user@example.com", Password: "qwerty", CreatedOn: now},
+		{FirstName: `Quote"quote`, LastName: "LastName", Email: "user@example.com", Password: "qwerty", CreatedOn: now},
 	}
 
 	for _, test := range tests {

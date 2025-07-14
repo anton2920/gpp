@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"fmt"
 	"go/token"
 )
 
@@ -131,7 +130,7 @@ func ParseStruct(l *Lexer, s *Struct) bool {
 							return false
 						}
 					}
-					fmt.Println(s)
+					// fmt.Println(s)
 					return true
 				}
 			}

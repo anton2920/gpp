@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"go/scanner"
 	"go/token"
 )
@@ -21,6 +22,10 @@ type Lexer struct {
 	Error error
 }
 
+func (t *Token) String() string {
+	return fmt.Sprintf("%s\t%s\t%q\n", t.Position, t.GoToken, t.Literal)
+}
+
 func (l *Lexer) Next() Token {
 	tok := l.Peek()
 	l.Position++
@@ -31,6 +36,7 @@ func (l *Lexer) Peek() Token {
 	if l.Position == len(l.Tokens) {
 		pos, tok, lit := l.Scanner.Scan()
 		l.Tokens = append(l.Tokens, Token{Position: l.FileSet.Position(pos), GoToken: tok, Literal: lit})
+		// debug.Printf("[lexer]: %s", l.Tokens[l.Position])
 	}
 	return l.Tokens[l.Position]
 }

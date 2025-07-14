@@ -55,29 +55,6 @@ func JSONSerializeString(buffer *[]byte, s string) {
 	*buffer = append(*buffer, `"`...)
 }
 
-func JSONSerializeUser(buffer *[]byte, user *User) {
-	*buffer = append(*buffer, `{`...)
-	*buffer = append(*buffer, `"ID":`...)
-	JSONSerializeInt32(buffer, int32(user.ID))
-	*buffer = append(*buffer, `,`...)
-	*buffer = append(*buffer, `"Flags":`...)
-	JSONSerializeUint32(buffer, user.Flags)
-	*buffer = append(*buffer, `,`...)
-	*buffer = append(*buffer, `"FirstName":`...)
-	JSONSerializeString(buffer, user.FirstName)
-	*buffer = append(*buffer, `,`...)
-	*buffer = append(*buffer, `"LastName":`...)
-	JSONSerializeString(buffer, user.LastName)
-	*buffer = append(*buffer, `,`...)
-	*buffer = append(*buffer, `"Email":`...)
-	JSONSerializeString(buffer, user.Email)
-	*buffer = append(*buffer, `,`...)
-	*buffer = append(*buffer, `"CreatedOn":`...)
-	JSONSerializeInt64(buffer, user.CreatedOn)
-	*buffer = append(*buffer, `}`...)
-}
-
-//gofa:gpp json
 type CompanyMember struct {
 	database.RecordHeader
 
