@@ -18,10 +18,6 @@ type Generator struct {
 	Imports Imports
 }
 
-const (
-	JSONGeneratorPrefix = "JSONSerialize"
-)
-
 func (g *Generator) AddImports(imps ...Import) {
 	for i := 0; i < len(imps); i++ {
 		imp := imps[i]
