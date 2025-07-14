@@ -1,6 +1,6 @@
 #!/bin/sh
 
-PROJECT=meta
+PROJECT=gpp
 
 VERBOSITY=0
 VERBOSITYFLAGS=""
