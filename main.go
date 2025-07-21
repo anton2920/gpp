@@ -116,8 +116,9 @@ func ParseString(l *Lexer, s *string) bool {
 }
 
 func Usage() {
-	fmt.Fprintf(os.Stderr, "usage: gpp [file ...]")
-	os.Exit(1)
+	fmt.Fprintf(os.Stderr, "usage: gpp [flags] [path ...]\n")
+	flag.PrintDefaults()
+	os.Exit(2)
 }
 
 func Errorf(format string, args ...interface{}) {
@@ -136,6 +137,7 @@ func main() {
 	var files []string
 
 	listFiles := flag.Bool("l", false, "list files which gpp processed")
+	flag.Usage = Usage
 	flag.Parse()
 
 	fileSet := token.NewFileSet()
