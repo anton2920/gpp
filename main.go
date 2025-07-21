@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"go/scanner"
 	"go/token"
@@ -134,10 +135,13 @@ func Fatalf(format string, args ...interface{}) {
 func main() {
 	var files []string
 
+	listFiles := flag.Bool("l", false, "list files which gpp processed")
+	flag.Parse()
+
 	fileSet := token.NewFileSet()
 	sources := make(map[int][]byte)
 
-	paths := os.Args[1:]
+	paths := flag.Args()
 	for i := 0; i < len(paths); i++ {
 		path := paths[i]
 		st, err := os.Stat(path)
@@ -222,16 +226,22 @@ func main() {
 		}
 
 		if g.ShouldDump() {
-			name := GeneratedName(f.Name())
-			file, err := os.Create(name)
-			if err != nil {
-				Errorf("Failed to create generated file %q: %v", name, err)
+			if f.Name() == Stdin {
+				g.Dump(os.Stdout)
+			} else {
+				name := GeneratedName(f.Name())
+				file, err := os.Create(name)
+				if err != nil {
+					Errorf("Failed to create generated file %q: %v", name, err)
+				}
+				defer file.Close()
+
+				g.Dump(file)
+
+				if *listFiles {
+					fmt.Println(f.Name())
+				}
 			}
-			defer file.Close()
-
-			g.Dump(file)
-
-			fmt.Println(f.Name())
 		}
 		return true
 	})

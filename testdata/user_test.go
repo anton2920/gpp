@@ -13,7 +13,7 @@ var testUser = User{FirstName: "FirstName", LastName: "LastName", Email: "user@e
 
 func TestJSONSerialize(t *testing.T) {
 	var s json.Serializer
-	s.Buf = make([]byte, 512)
+	s.Buffer = make([]byte, 512)
 
 	now := time.Now().Unix()
 	tests := [...]User{
@@ -60,7 +60,7 @@ func BenchmarkJSONEncoder(b *testing.B) {
 
 func BenchmarkPutJSON(b *testing.B) {
 	var s json.Serializer
-	s.Buf = make([]byte, 512)
+	s.Buffer = make([]byte, 512)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
