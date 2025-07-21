@@ -27,8 +27,8 @@ func (t *Token) String() string {
 }
 
 func (l *Lexer) Next() Token {
-	tok := l.Peek()
 	l.Position++
+	tok := l.Peek()
 	return tok
 }
 

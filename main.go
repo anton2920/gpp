@@ -95,21 +95,27 @@ func ParseIdent(l *Lexer, ident *string) bool {
 	return false
 }
 
-func ParseInt(l *Lexer, n *int) bool {
+func ParseIntLit(l *Lexer, n *int) bool {
 	if ParseToken(l, token.INT) {
 		var err error
 		*n, err = strconv.Atoi(l.Prev().Literal)
 		if err != nil {
-			l.Error = fmt.Errorf("failed to parse int: %v", err)
+			l.Error = fmt.Errorf("failed to parse int value: %v", err)
 		}
 		return err == nil
 	}
 	return false
 }
 
-func ParseString(l *Lexer, s *string) bool {
+func ParseStringLit(l *Lexer, s *string) bool {
 	if ParseToken(l, token.STRING) {
 		*s = l.Prev().Literal
+		if ((*s)[0] == '"') || ((*s)[0] == '`') {
+			*s = (*s)[1:]
+		}
+		if ((*s)[len(*s)-1] == '"') || ((*s)[len(*s)-1] == '`') {
+			*s = (*s)[:len(*s)-1]
+		}
 		return true
 	}
 	return false
@@ -164,7 +170,7 @@ func main() {
 			}
 			for j := 0; j < len(names); j++ {
 				name := names[j]
-				if strings.EndsWith(name, ".go") {
+				if (strings.EndsWith(name, ".go")) && (strings.FindSubstring(name, GeneratedSuffix) == -1) {
 					files = append(files, filepath.Join(path, name))
 				}
 			}
@@ -203,17 +209,19 @@ func main() {
 			case token.COMMENT:
 				var comment Comment
 				if ParseGofaComment(&l, &comment) {
-					var structure Struct
-					if ParseStruct(&l, &structure) {
-						if l.Error != nil {
-							Errorf("Failed to parse structure: %v", l.Error)
-							return false
+					var specs []TypeSpec
+					if ParseTypeDecl(&l, &specs) {
+						for i := 0; i < len(specs); i++ {
+							spec := &specs[i]
+							for j := 0; j < len(comment.Formats); j++ {
+								format := comment.Formats[j]
+								format.Generate(&g, spec)
+							}
 						}
-
-						for i := 0; i < len(comment.Formats); i++ {
-							format := comment.Formats[i]
-							format.Generate(&g, &structure)
-						}
+					}
+					if l.Error != nil {
+						Errorf("Failed to parse type declarations: %v", l.Error)
+						return false
 					}
 					continue
 				}

@@ -6,126 +6,146 @@ import (
 )
 
 type Type struct {
-	Package   string
-	Name      string
-	Kind      TypeKind
-	InnerKind TypeKind
+	Package string
+	Name    string
+	Args    []Type
+	Literal TypeLit
 }
 
-type TypeArg struct {
-	Name string
-	Type Type
+type TypeParam struct {
+	Name       string
+	Constraint Type
 }
 
-type TypeKind int
-
-const (
-	TypeKindNone = TypeKind(iota)
-	TypeKindInt
-	TypeKindUint
-	TypeKindInt32
-	TypeKindUint32
-	TypeKindInt64
-	TypeKindUint64
-	TypeKindPointer
-	TypeKindString
-	TypeKindSlice
-	TypeKindUnknown
-)
-
-var TypeKind2String = [...]string{
-	TypeKindInt:    "int",
-	TypeKindUint:   "uint",
-	TypeKindInt32:  "int32",
-	TypeKindUint32: "uint32",
-	TypeKindInt64:  "int64",
-	TypeKindUint64: "uint64",
-	TypeKindString: "string",
+type TypeSpec struct {
+	Name   string
+	Params []TypeParam
+	Type   Type
+	Alias  bool
 }
 
 func (t *Type) String() string {
+	if t.Literal != nil {
+		return t.Literal.String()
+	}
+
 	var buf bytes.Buffer
 
-	switch t.Kind {
-	case TypeKindPointer:
-		buf.WriteRune('*')
-	case TypeKindSlice:
-		buf.WriteString(`[]`)
-	}
 	if len(t.Package) > 0 {
 		buf.WriteString(t.Package)
 		buf.WriteRune('.')
 	}
 	buf.WriteString(t.Name)
 
+	if len(t.Args) > 0 {
+		buf.WriteRune('[')
+		for i := 0; i < len(t.Args); i++ {
+			if i > 0 {
+				buf.WriteRune(',')
+			}
+			buf.WriteString(t.Args[i].String())
+		}
+		buf.WriteRune(']')
+	}
+
 	return buf.String()
 }
 
 func ParseType(l *Lexer, t *Type) bool {
-	var pointer bool
-	var name string
-
-	if l.Error != nil {
-		return false
-	}
-
-	if ParseToken(l, token.LBRACK) {
-		var n int
-		ParseInt(l, &n)
-		l.Error = nil
-
-		if !ParseToken(l, token.RBRACK) {
-			return false
-		}
-
-		if ParseType(l, t) {
-			t.InnerKind = t.Kind
-			t.Kind = TypeKindSlice
-			return true
-		}
-		return false
-	}
-
-	if ParseToken(l, token.MUL) {
-		pointer = true
+	if ParseTypeLit(l, &t.Literal) {
+		return true
 	}
 	l.Error = nil
 
-	if ParseIdent(l, &name) {
-		t.Name = name
+	var ident string
+	if ParseIdent(l, &ident) {
 		if ParseToken(l, token.PERIOD) {
-			if !ParseIdent(l, &name) {
-				return false
+			t.Package = ident
+			if ParseIdent(l, &t.Name) {
+				ParseTypeArgs(l, &t.Args)
+				l.Error = nil
+				return true
 			}
-			t.Package = t.Name
-			t.Name = name
 		}
 		l.Error = nil
+		t.Name = ident
 
-		if pointer {
-			t.Kind = TypeKindPointer
-		} else {
-			switch t.Name {
-			default:
-				/* TODO(anton2920): expand list of known types. */
-				t.Kind = TypeKindUnknown
-			case "int":
-				t.Kind = TypeKindInt
-			case "uint":
-				t.Kind = TypeKindUint
-			case "int32", "ID":
-				t.Kind = TypeKindInt32
-			case "uint32", "Flags":
-				t.Kind = TypeKindUint32
-			case "int64":
-				t.Kind = TypeKindInt64
-			case "uint64":
-				t.Kind = TypeKindUint64
-			case "string":
-				t.Kind = TypeKindString
+		ParseTypeArgs(l, &t.Args)
+		l.Error = nil
+		return true
+	}
+
+	return false
+}
+
+func ParseTypeArgs(l *Lexer, ts *[]Type) bool {
+	if ParseToken(l, token.LBRACK) {
+		for l.Peek().GoToken != token.RBRACK {
+			var t Type
+			if !ParseType(l, &t) {
+				return false
+			}
+			*ts = append(*ts, t)
+		}
+		return true
+	}
+	return false
+}
+
+func ParseTypeParams(l *Lexer, tparams *[]TypeParam) bool {
+	if ParseToken(l, token.LBRACK) {
+		var idents []string
+		if ParseIdentList(l, &idents) {
+			var t Type
+			if ParseType(l, &t) {
+				if ParseToken(l, token.RBRACK) {
+					for i := 0; i < len(idents); i++ {
+						*tparams = append(*tparams, TypeParam{Name: idents[i], Constraint: t})
+					}
+					return true
+				}
 			}
 		}
 	}
+	return false
+}
 
-	return t.Kind != TypeKindNone
+func ParseTypeSpec(l *Lexer, ts *TypeSpec) bool {
+	if ParseIdent(l, &ts.Name) {
+		ParseTypeParams(l, &ts.Params)
+		l.Error = nil
+
+		if ParseToken(l, token.ASSIGN) {
+			ts.Alias = true
+		}
+		l.Error = nil
+
+		if ParseType(l, &ts.Type) {
+			return true
+		}
+	}
+	return false
+}
+
+func ParseTypeDecl(l *Lexer, tss *[]TypeSpec) bool {
+	if ParseToken(l, token.TYPE) {
+		if ParseToken(l, token.LPAREN) {
+			for l.Peek().GoToken != token.RPAREN {
+				var ts TypeSpec
+				if !ParseTypeSpec(l, &ts) {
+					return false
+				}
+				*tss = append(*tss, ts)
+			}
+		}
+		l.Error = nil
+
+		var ts TypeSpec
+		if ParseTypeSpec(l, &ts) {
+			*tss = append(*tss, ts)
+			return true
+		}
+	}
+
+	return false
 }

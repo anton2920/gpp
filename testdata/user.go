@@ -1,15 +1,14 @@
 package main
 
 import (
-	"github.com/anton2920/gofa/bits"
 	"github.com/anton2920/gofa/database"
 )
 
 //gofa:gpp json
 type User struct {
-	//database.RecordHeader
-	ID    database.ID
-	Flags bits.Flags
+	database.RecordHeader
+	//ID    database.ID
+	//Flags bits.Flags
 
 	FirstName string
 	LastName  string
