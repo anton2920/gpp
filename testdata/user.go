@@ -4,6 +4,8 @@ import (
 	"github.com/anton2920/gofa/database"
 )
 
+type Test int
+
 //gofa:gpp json
 type User struct {
 	RecordHeader
@@ -17,7 +19,7 @@ type User struct {
 	CreatedOn int64
 }
 
-//gofa:gpp json
+//gofa:gpp jso
 type CompanyMember struct {
 	database.RecordHeader
 

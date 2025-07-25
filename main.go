@@ -14,9 +14,18 @@ import (
 	"github.com/anton2920/gofa/strings"
 )
 
+type FileSpec struct {
+	Filename string
+	Specs    []TypeSpec
+}
+
+type PackageSpec map[string][]FileSpec
+
 const GOFA = "github.com/anton2920/gofa/"
 
 const Stdin = "<stdin>"
+
+var PackageSpecs = make(PackageSpec)
 
 func ReadEntireStdin() ([]byte, error) {
 	var buf bytes.Buffer
@@ -195,7 +204,9 @@ func main() {
 	}
 
 	fileSet.Iterate(func(f *token.File) bool {
-		var g Generator
+		var comment *Comment
+		var packageName string
+		var specs []TypeSpec
 		var l Lexer
 
 		l.FileSet = fileSet
@@ -207,52 +218,80 @@ func main() {
 			case token.EOF:
 				done = true
 			case token.COMMENT:
-				var comment Comment
-				if ParseGofaComment(&l, &comment) {
-					var specs []TypeSpec
-					if ParseTypeDecl(&l, &specs) {
-						for i := 0; i < len(specs); i++ {
-							spec := &specs[i]
-							for j := 0; j < len(comment.Formats); j++ {
-								format := comment.Formats[j]
-								format.Serialize(&g, spec)
-							}
-						}
-					}
-					if l.Error != nil {
-						Errorf("Failed to parse type declarations: %v", l.Error)
-						return false
-					}
-					continue
+				var c Comment
+				if ParseGofaComment(&l, &c) {
+					comment = &c
 				}
 				l.Error = nil
+				continue
+			case token.TYPE:
+				var ss []TypeSpec
+				if !ParseTypeDecl(&l, &ss) {
+					Errorf("Failed to parse type declarations: %v", l.Error)
+					return false
+				}
+				if comment != nil {
+					for i := 0; i < len(ss); i++ {
+						ss[i].Comment = comment
+					}
+					comment = nil
+				}
+				specs = append(specs, ss...)
+				continue
 			case token.PACKAGE:
-				if !ParsePackage(&l, &g.Package) {
+				if !ParsePackage(&l, &packageName) {
 					Errorf("Failed to parse package: %v", l.Error)
 					return false
 				}
 			}
+			comment = nil
 			l.Next()
 		}
 
-		if g.ShouldDump() {
-			if f.Name() == Stdin {
-				g.Dump(os.Stdout)
-			} else {
-				name := GeneratedName(f.Name())
-				file, err := os.Create(name)
-				if err != nil {
-					Errorf("Failed to create generated file %q: %v", name, err)
-				}
-				defer file.Close()
-
-				g.Dump(file)
-
-				if *listFiles {
-					fmt.Println(f.Name())
-				}
-			}
+		PackageSpecs[packageName] = append(PackageSpecs[packageName], FileSpec{Filename: f.Name(), Specs: specs})
+		if *listFiles {
+			fmt.Println(f.Name())
 		}
 		return true
 	})
+
+	fmt.Println(PackageSpecs)
+
+	for packageName, fileSpecs := range PackageSpecs {
+		for i := 0; i < len(fileSpecs); i++ {
+			var g Generator
+			g.Package = packageName
+
+			fileSpec := &fileSpecs[i]
+			filename := fileSpec.Filename
+			specs := fileSpec.Specs
+
+			for j := 0; j < len(specs); j++ {
+				spec := &specs[j]
+
+				if spec.Comment != nil {
+					for k := 0; k < len(spec.Comment.Formats); k++ {
+						format := spec.Comment.Formats[k]
+						format.Serialize(&g, spec)
+					}
+				}
+			}
+
+			if g.ShouldDump() {
+				if filename == Stdin {
+					g.Dump(os.Stdout)
+				} else {
+					name := GeneratedName(filename)
+					file, err := os.Create(name)
+					if err != nil {
+						Errorf("Failed to create generated file %q: %v", name, err)
+					}
+					defer file.Close()
+
+					g.Dump(file)
+				}
+			}
+		}
+	}
+
 }

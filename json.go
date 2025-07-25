@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"unicode"
+
+	"github.com/anton2920/gofa/strings"
 )
 
 type FormatJSON struct{}
@@ -22,23 +24,45 @@ func (f *FormatJSON) SerializeSlice(g *Generator, name string, s *Slice) {
 	g.WriteString("s.PutArrayEnd()\n")
 }
 
-func (f *FormatJSON) SerializeStruct(g *Generator, name string, s *Struct) {
-	g.WriteString("s.PutObjectBegin()\n")
-	for i := 0; i < len(s.Fields); i++ {
-		field := &s.Fields[i]
+func FindLiteral(packageName string, typeName string) TypeLit {
+	fileSpecs := PackageSpecs[packageName]
+	for _, fileSpec := range fileSpecs {
+		for _, spec := range fileSpec.Specs {
+			if typeName == spec.Name {
+				if spec.Type.Literal == nil {
+					FindLiteral(strings.Or(spec.Type.Package, packageName), spec.Type.Name)
+				}
+				return spec.Type.Literal
+			}
+		}
+	}
+	return nil
+}
+
+func (f *FormatJSON) SerializeStructFields(g *Generator, name string, fields []StructField) {
+	for _, field := range fields {
 		if field.Tag == `json:"-"` {
 			continue
 		}
 
-		/* TODO(anton2920): embed fields without name. */
-		fieldName := field.Name
-		if len(fieldName) == 0 {
-			fieldName = field.Type.Name
+		if len(field.Name) == 0 {
+			lit := FindLiteral(strings.Or(field.Type.Package, g.Package), field.Type.Name)
+			if s, ok := lit.(*Struct); ok {
+				f.SerializeStructFields(g, name+"."+field.Type.Name, s.Fields)
+			} else {
+				g.Printf("s.PutKey(`%s`)\n", field.Type.Name)
+				f.SerializeTypeLit(g, lit.String()+"("+name+"."+field.Type.Name+")", lit)
+			}
+		} else {
+			g.Printf("s.PutKey(`%s`)\n", field.Name)
+			f.SerializeType(g, name+"."+field.Name, &field.Type)
 		}
-
-		g.Printf("s.PutKey(`%s`)\n", fieldName)
-		f.SerializeType(g, name+"."+fieldName, &field.Type)
 	}
+}
+
+func (f *FormatJSON) SerializeStruct(g *Generator, name string, s *Struct) {
+	g.WriteString("s.PutObjectBegin()\n")
+	f.SerializeStructFields(g, name, s.Fields)
 	g.WriteString("s.PutObjectEnd()\n")
 }
 

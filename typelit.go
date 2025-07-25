@@ -239,7 +239,7 @@ func ParseStruct(l *Lexer, s *Struct) bool {
 					return false
 				}
 			}
-			// fmt.Println(s)
+			//fmt.Printf("%#v\n", s)
 			return true
 		}
 	}

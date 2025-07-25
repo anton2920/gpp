@@ -18,10 +18,11 @@ type TypeParam struct {
 }
 
 type TypeSpec struct {
-	Name   string
-	Params []TypeParam
-	Type   Type
-	Alias  bool
+	Comment *Comment
+	Name    string
+	Params  []TypeParam
+	Type    Type
+	Alias   bool
 }
 
 func (t *Type) String() string {
