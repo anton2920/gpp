@@ -1,6 +1,7 @@
 Now:
 
-- Fix resolving aliased imports.
+- Fix 'dot'-imports.
+- Add understanding of function and interface types.
 
 Later:
 
