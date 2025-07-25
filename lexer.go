@@ -35,7 +35,7 @@ func (l *Lexer) Peek() Token {
 	if l.Position == len(l.Tokens) {
 		pos, tok, lit := l.Scanner.Scan()
 		l.Tokens = append(l.Tokens, Token{Position: FileSet.Position(pos), GoToken: tok, Literal: lit})
-		// debug.Printf("[lexer]: %s", l.Tokens[l.Position])
+		//debug.Printf("[lexer]: %s", l.Tokens[l.Position])
 	}
 	return l.Tokens[l.Position]
 }

@@ -38,6 +38,10 @@ type Interface struct {
 	Functions []Func
 }
 
+type Pointer struct {
+	BaseType Type
+}
+
 type Slice struct {
 	Element Type
 }
@@ -58,6 +62,7 @@ var (
 	_ = TypeLit(new(Float))
 	_ = TypeLit(new(Int))
 	_ = TypeLit(new(Interface))
+	_ = TypeLit(new(Pointer))
 	_ = TypeLit(new(Slice))
 	_ = TypeLit(new(String))
 	_ = TypeLit(new(Struct))
@@ -84,6 +89,10 @@ func (i *Interface) String() string {
 
 func (f *Float) String() string {
 	return fmt.Sprintf("float%d", f.Bitsize)
+}
+
+func (p *Pointer) String() string {
+	return fmt.Sprintf("*%s", p.BaseType)
 }
 
 func (s *Slice) String() string {
@@ -166,6 +175,15 @@ func ParseInt(l *Lexer, i *Int) bool {
 	return false
 }
 
+func ParsePointer(l *Lexer, p *Pointer) bool {
+	if ParseToken(l, token.MUL) {
+		if ParseType(l, &p.BaseType) {
+			return true
+		}
+	}
+	return false
+}
+
 func ParseSlice(l *Lexer, s *Slice) bool {
 	if ParseToken(l, token.LBRACK) {
 		if ParseToken(l, token.RBRACK) {
@@ -205,9 +223,9 @@ func ParseStructFields(l *Lexer, fs *[]StructField) bool {
 				*fs = append(*fs, StructField{Name: idents[i], Type: t, Tag: tag})
 			}
 
-			if ParseToken(l, token.SEMICOLON) {
-				return true
-			}
+			ParseToken(l, token.SEMICOLON)
+			l.Error = nil
+			return true
 		}
 	}
 
@@ -223,9 +241,9 @@ func ParseStructFields(l *Lexer, fs *[]StructField) bool {
 
 		*fs = append(*fs, StructField{Type: t, Tag: tag})
 
-		if ParseToken(l, token.SEMICOLON) {
-			return true
-		}
+		ParseToken(l, token.SEMICOLON)
+		l.Error = nil
+		return true
 	}
 
 	return false
@@ -234,7 +252,8 @@ func ParseStructFields(l *Lexer, fs *[]StructField) bool {
 func ParseStruct(l *Lexer, s *Struct) bool {
 	if ParseToken(l, token.STRUCT) {
 		if ParseToken(l, token.LBRACE) {
-			for l.Peek().GoToken != token.RBRACE {
+			for !ParseToken(l, token.RBRACE) {
+				l.Error = nil
 				if !ParseStructFields(l, &s.Fields) {
 					return false
 				}
@@ -294,6 +313,13 @@ func ParseTypeLit(l *Lexer, tl *TypeLit) bool {
 			}
 			return false
 		}
+	case token.MUL:
+		p := new(Pointer)
+		if ParsePointer(l, p) {
+			*tl = p
+			return true
+		}
+		return false
 	case token.STRUCT:
 		s := new(Struct)
 		if ParseStruct(l, s) {

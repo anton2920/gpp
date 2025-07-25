@@ -6,6 +6,8 @@ import (
 
 type Int int
 
+type Test struct{ Int }
+
 //gpp:generate json
 type User struct {
 	database.RecordHeader

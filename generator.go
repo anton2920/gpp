@@ -60,6 +60,7 @@ func (g *Generator) Dump(w io.Writer) (int64, error) {
 
 	sort.Sort(g.DoImports)
 
+	var newline bool
 	if len(g.DoImports) > 0 {
 		fmt.Fprintf(&buf, "\nimport ")
 		if len(g.DoImports) > 1 {
@@ -69,6 +70,10 @@ func (g *Generator) Dump(w io.Writer) (int64, error) {
 			imp := &g.DoImports[i]
 
 			if len(g.DoImports) > 1 {
+				if (!newline) && (strings.FindChar(imp.Path, '/') != -1) {
+					buf.WriteRune('\n')
+					newline = true
+				}
 				buf.WriteRune('\t')
 			}
 			if len(imp.QualifiedName) > 0 {

@@ -87,6 +87,14 @@ func ParseToken(l *Lexer, expectedTok token.Token) bool {
 	return false
 }
 
+func ParseIdent(l *Lexer, ident *string) bool {
+	if ParseToken(l, token.IDENT) {
+		*ident = l.Prev().Literal
+		return true
+	}
+	return false
+}
+
 func ParseIdentList(l *Lexer, idents *[]string) bool {
 	var ident string
 
@@ -99,14 +107,6 @@ func ParseIdentList(l *Lexer, idents *[]string) bool {
 	}
 
 	return len(*idents) != 0
-}
-
-func ParseIdent(l *Lexer, ident *string) bool {
-	if ParseToken(l, token.IDENT) {
-		*ident = l.Prev().Literal
-		return true
-	}
-	return false
 }
 
 func ParseIntLit(l *Lexer, n *int) bool {
@@ -298,20 +298,22 @@ func main() {
 				}
 				l.Error = nil
 			case token.TYPE:
-				var specs []TypeSpec
-				if !ParseTypeDecl(&l, &specs) {
-					Errorf("Failed to parse type declarations: %v", l.Error)
-					return false
-				}
-				if comment != nil {
-					for i := 0; i < len(specs); i++ {
-						spec := &specs[i]
-						spec.Comment = comment
+				if l.Prev().GoToken != token.LPAREN {
+					var specs []TypeSpec
+					if !ParseTypeDecl(&l, &specs) {
+						Errorf("Failed to parse type declarations: %v", l.Error)
+						return false
 					}
-					comment = nil
+					if comment != nil {
+						for i := 0; i < len(specs); i++ {
+							spec := &specs[i]
+							spec.Comment = comment
+						}
+						comment = nil
+					}
+					parsedFile.Specs = append(parsedFile.Specs, specs...)
+					continue
 				}
-				parsedFile.Specs = append(parsedFile.Specs, specs...)
-				continue
 			case token.EOF:
 				done = true
 			}
