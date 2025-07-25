@@ -9,8 +9,6 @@ type Int int
 //gpp:generate json
 type User struct {
 	database.RecordHeader
-	//ID    database.ID
-	//Flags bits.Flags
 
 	FirstName string
 	LastName  string

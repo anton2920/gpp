@@ -20,7 +20,7 @@ func ParseImport(l *Lexer, i *Import) bool {
 	return ParseStringLit(l, &i.Path)
 }
 
-func ParseImports(l *Lexer, is *[]Import) bool {
+func ParseImports(l *Lexer, is *Imports) bool {
 	if ParseToken(l, token.IMPORT) {
 		if ParseToken(l, token.LPAREN) {
 			for l.Peek().GoToken != token.RPAREN {

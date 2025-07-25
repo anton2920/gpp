@@ -17,7 +17,7 @@ import (
 
 type ParsedFile struct {
 	Filename string
-	Imports  []Import
+	Imports  Imports
 	Specs    []TypeSpec
 }
 
@@ -201,7 +201,18 @@ func PopulateFileSet(paths []string) error {
 	return nil
 }
 
-func FindPackagePath(is []Import, packageName string) string {
+func FindPackageName(is Imports, name string) string {
+	packageName := name
+	for _, i := range is {
+		if i.QualifiedName == packageName {
+			packageName = filepath.Base(i.Path)
+			break
+		}
+	}
+	return packageName
+}
+
+func FindPackagePath(is Imports, packageName string) string {
 	for _, i := range is {
 		if (i.QualifiedName == packageName) || (strings.EndsWith(i.Path, packageName)) {
 			return i.Path
@@ -311,7 +322,11 @@ func main() {
 		for packageName := range processedPackages {
 			delete(ReferencedPackages, packageName)
 		}
-		for packageName := range ReferencedPackages {
+		for name := range ReferencedPackages {
+			packageName := FindPackageName(parsedFile.Imports, name)
+			if _, ok := processedPackages[packageName]; ok {
+				continue
+			}
 			paths = append(paths, ResolvePackagePath(FindPackagePath(parsedFile.Imports, packageName)))
 			processedPackages[packageName] = struct{}{}
 		}

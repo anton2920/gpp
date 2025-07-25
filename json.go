@@ -9,13 +9,14 @@ import (
 
 type FormatJSON struct{}
 
-func FindLiteral(packageName string, typeName string) TypeLit {
+func FindLiteral(is Imports, name string, typeName string) TypeLit {
+	packageName := FindPackageName(is, name)
 	parsedFiles := ParsedPackages[packageName]
 	for _, parsedFile := range parsedFiles {
 		for _, spec := range parsedFile.Specs {
 			if typeName == spec.Name {
 				if spec.Type.Literal == nil {
-					FindLiteral(strings.Or(spec.Type.Package, packageName), spec.Type.Name)
+					FindLiteral(is, strings.Or(spec.Type.Package, packageName), spec.Type.Name)
 				}
 				return spec.Type.Literal
 			}
@@ -33,7 +34,7 @@ func (f *FormatJSON) SerializeSlice(g *Generator, name string, s *Slice) {
 	g.Tabs++
 	for {
 		if len(s.Element.Name) != 0 {
-			lit := FindLiteral(strings.Or(s.Element.Package, g.Package), s.Element.Name)
+			lit := FindLiteral(g.Imports, strings.Or(s.Element.Package, g.Package), s.Element.Name)
 			if _, ok := lit.(*Struct); !ok {
 				f.SerializeTypeLit(g, fmt.Sprintf("%s(%s[%c])", lit, name, letter), lit)
 				break
@@ -68,7 +69,7 @@ func (f *FormatJSON) SerializeStructFields(g *Generator, name string, fields []S
 		}
 
 		if len(field.Type.Name) > 0 {
-			lit := FindLiteral(strings.Or(field.Type.Package, g.Package), field.Type.Name)
+			lit := FindLiteral(g.Imports, strings.Or(field.Type.Package, g.Package), field.Type.Name)
 			if s, ok := lit.(*Struct); ok {
 				if len(field.Name) == 0 {
 					for i := 0; i < len(s.Fields); i++ {
@@ -80,15 +81,15 @@ func (f *FormatJSON) SerializeStructFields(g *Generator, name string, fields []S
 					f.SerializeStructFields(g, name+"."+field.Type.Name, s.Fields)
 					continue
 				}
-			} else {
+			} else if lit != nil {
 				g.Printf("s.PutKey(`%s`)\n", field.Type.Name)
 				f.SerializeTypeLit(g, fmt.Sprintf("%s(%s.%s)", lit, name, strings.Or(field.Name, field.Type.Name)), lit)
 				continue
 			}
 		}
 
-		g.Printf("s.PutKey(`%s`)\n", field.Name)
-		f.SerializeType(g, name+"."+field.Name, &field.Type)
+		g.Printf("s.PutKey(`%s`)\n", strings.Or(field.Name, field.Type.Name))
+		f.SerializeType(g, name+"."+strings.Or(field.Name, field.Type.Name), &field.Type)
 	}
 }
 
