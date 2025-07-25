@@ -6,7 +6,7 @@ import (
 
 //gofa:gpp json
 type User struct {
-	database.RecordHeader
+	RecordHeader
 	//ID    database.ID
 	//Flags bits.Flags
 

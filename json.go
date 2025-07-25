@@ -7,7 +7,7 @@ import (
 
 type FormatJSON struct{}
 
-func (f *FormatJSON) GenerateSlice(g *Generator, name string, s *Slice) {
+func (f *FormatJSON) SerializeSlice(g *Generator, name string, s *Slice) {
 	letters := []byte{'i', 'j', 'k', 'l', 'm', 'n'}
 	letter := letters[g.Tabs-1]
 
@@ -15,14 +15,14 @@ func (f *FormatJSON) GenerateSlice(g *Generator, name string, s *Slice) {
 	g.Printf("for %c := 0; %c < len(%s); %c++ {\n", letter, letter, name, letter)
 	g.Tabs++
 	{
-		f.GenerateType(g, fmt.Sprintf("%s[%c]", name, letter), &s.Element)
+		f.SerializeType(g, fmt.Sprintf("%s[%c]", name, letter), &s.Element)
 	}
 	g.Tabs--
 	g.WriteString("}\n")
 	g.WriteString("s.PutArrayEnd()\n")
 }
 
-func (f *FormatJSON) GenerateStruct(g *Generator, name string, s *Struct) {
+func (f *FormatJSON) SerializeStruct(g *Generator, name string, s *Struct) {
 	g.WriteString("s.PutObjectBegin()\n")
 	for i := 0; i < len(s.Fields); i++ {
 		field := &s.Fields[i]
@@ -37,26 +37,26 @@ func (f *FormatJSON) GenerateStruct(g *Generator, name string, s *Struct) {
 		}
 
 		g.Printf("s.PutKey(`%s`)\n", fieldName)
-		f.GenerateType(g, name+"."+fieldName, &field.Type)
+		f.SerializeType(g, name+"."+fieldName, &field.Type)
 	}
 	g.WriteString("s.PutObjectEnd()\n")
 }
 
-func (f *FormatJSON) GenerateTypeLit(g *Generator, name string, lit TypeLit) {
+func (f *FormatJSON) SerializeTypeLit(g *Generator, name string, lit TypeLit) {
 	switch lit := lit.(type) {
 	case *Int, *Float, *String:
 		s := lit.String()
 		g.Printf("s.Put%c%s(%s)\n", unicode.ToUpper(rune(s[0])), s[1:], name)
 	case *Slice:
-		f.GenerateSlice(g, name, lit)
+		f.SerializeSlice(g, name, lit)
 	case *Struct:
-		f.GenerateStruct(g, name, lit)
+		f.SerializeStruct(g, name, lit)
 	}
 }
 
-func (f *FormatJSON) GenerateType(g *Generator, name string, t *Type) {
+func (f *FormatJSON) SerializeType(g *Generator, name string, t *Type) {
 	if t.Literal != nil {
-		f.GenerateTypeLit(g, name, t.Literal)
+		f.SerializeTypeLit(g, name, t.Literal)
 	} else {
 		tabs := g.Tabs
 
@@ -74,14 +74,14 @@ func (f *FormatJSON) GenerateType(g *Generator, name string, t *Type) {
 	}
 }
 
-func (f *FormatJSON) Generate(g *Generator, ts *TypeSpec) {
+func (f *FormatJSON) Serialize(g *Generator, ts *TypeSpec) {
 	g.AddImports(Import{Path: GOFA + "encoding/json"})
 	name := VariableName(ts.Name, false)
 
 	g.Printf("\nfunc Put%sJSON(s *json.Serializer, %s *%s) {\n", ts.Name, name, ts.Name)
 	g.Tabs++
 
-	f.GenerateType(g, name, &ts.Type)
+	f.SerializeType(g, name, &ts.Type)
 
 	g.Tabs--
 	g.WriteString("}\n")

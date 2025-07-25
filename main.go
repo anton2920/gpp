@@ -215,7 +215,7 @@ func main() {
 							spec := &specs[i]
 							for j := 0; j < len(comment.Formats); j++ {
 								format := comment.Formats[j]
-								format.Generate(&g, spec)
+								format.Serialize(&g, spec)
 							}
 						}
 					}
