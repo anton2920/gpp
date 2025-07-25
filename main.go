@@ -9,23 +9,28 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 
 	"github.com/anton2920/gofa/strings"
 )
 
-type FileSpec struct {
+type ParsedFile struct {
 	Filename string
+	Imports  []Import
 	Specs    []TypeSpec
 }
-
-type PackageSpec map[string][]FileSpec
 
 const GOFA = "github.com/anton2920/gofa/"
 
 const Stdin = "<stdin>"
 
-var PackageSpecs = make(PackageSpec)
+var (
+	ReferencedPackages = make(map[string]struct{})
+	ParsedPackages     = make(map[string][]ParsedFile)
+	FileSet            = token.NewFileSet()
+	Sources            = make(map[int][]byte)
+)
 
 func ReadEntireStdin() ([]byte, error) {
 	var buf bytes.Buffer
@@ -148,22 +153,14 @@ func Fatalf(format string, args ...interface{}) {
 	os.Exit(1)
 }
 
-func main() {
+func PopulateFileSet(paths []string) error {
 	var files []string
 
-	listFiles := flag.Bool("l", false, "list files which gpp processed")
-	flag.Usage = Usage
-	flag.Parse()
-
-	fileSet := token.NewFileSet()
-	sources := make(map[int][]byte)
-
-	paths := flag.Args()
 	for i := 0; i < len(paths); i++ {
 		path := paths[i]
 		st, err := os.Stat(path)
 		if err != nil {
-			Fatalf("Failed to stat %q: %v", path, err)
+			return fmt.Errorf("failed to stat %q: %v", path, err)
 		}
 
 		if !st.IsDir() {
@@ -171,11 +168,13 @@ func main() {
 		} else {
 			dir, err := os.Open(path)
 			if err != nil {
-				Fatalf("Failed to open directory %q: %v", path, err)
+				return fmt.Errorf("failed to open directory %q: %v", path, err)
 			}
+			defer dir.Close()
+
 			names, err := dir.Readdirnames(-1)
 			if err != nil {
-				Fatalf("Failed to read names of directory %q entries: %v", path, err)
+				return fmt.Errorf("failed to read names of directory %q entries: %v", path, err)
 			}
 			for j := 0; j < len(names); j++ {
 				name := names[j]
@@ -183,96 +182,166 @@ func main() {
 					files = append(files, filepath.Join(path, name))
 				}
 			}
-			dir.Close()
 		}
 	}
 
-	if len(files) == 0 {
-		files = append(files, Stdin)
-	}
 	for i := 0; i < len(files); i++ {
 		file := files[i]
 
 		src, err := ReadEntireFile(file)
 		if err != nil {
-			Fatalf("Failed to read entire file %q: %v", file, err)
+			return fmt.Errorf("failed to read entire file %q: %v", file, err)
 		}
 
-		base := fileSet.Base()
-		fileSet.AddFile(file, base, len(src))
-		sources[base] = src
+		base := FileSet.Base()
+		FileSet.AddFile(file, base, len(src))
+		Sources[base] = src
 	}
 
-	fileSet.Iterate(func(f *token.File) bool {
+	return nil
+}
+
+func FindPackagePath(is []Import, packageName string) string {
+	for _, i := range is {
+		if (i.QualifiedName == packageName) || (strings.EndsWith(i.Path, packageName)) {
+			return i.Path
+		}
+	}
+	return ""
+}
+
+func ResolvePackagePath(path string) string {
+	/* Resolve order:
+	1. $GOROOT/src
+	2. $GOPATH/src
+	3. $GOPATH/pkg/mod -- not implemented
+	*/
+	test := filepath.Join(runtime.GOROOT(), "src", path)
+	f, err := os.Open(test)
+	if err == nil {
+		f.Close()
+		return test
+	}
+
+	gopath := strings.Or(os.Getenv("GOPATH"), filepath.Join(os.Getenv("HOME"), "go"))
+	for {
+		part, rest, ok := strings.Cut(gopath, ":")
+		test := filepath.Join(part, "src", path)
+		f, err := os.Open(test)
+		if err == nil {
+			f.Close()
+			return test
+		}
+		if !ok {
+			break
+		}
+		gopath = rest
+	}
+
+	return ""
+}
+
+func main() {
+	listFiles := flag.Bool("l", false, "list files which gpp processed")
+	flag.Usage = Usage
+	flag.Parse()
+
+	paths := flag.Args()
+	if len(paths) == 0 {
+		paths = append(paths, Stdin)
+	}
+	if err := PopulateFileSet(paths); err != nil {
+		Fatalf("Failed to process arguments: %v", err)
+	}
+
+	processedPackages := make(map[string]struct{})
+	FileSet.Iterate(func(f *token.File) bool {
 		var comment *Comment
+		var parsedFile ParsedFile
 		var packageName string
-		var specs []TypeSpec
+		var paths []string
 		var l Lexer
 
-		l.FileSet = fileSet
-		l.Scanner.Init(f, sources[f.Base()], nil, scanner.ScanComments)
+		parsedFile.Filename = f.Name()
+		l.Scanner.Init(f, Sources[f.Base()], nil, scanner.ScanComments)
 
 		done := false
 		for !done {
 			switch l.Peek().GoToken {
-			case token.EOF:
-				done = true
-			case token.COMMENT:
-				var c Comment
-				if ParseGofaComment(&l, &c) {
-					comment = &c
-				}
-				l.Error = nil
-				continue
-			case token.TYPE:
-				var ss []TypeSpec
-				if !ParseTypeDecl(&l, &ss) {
-					Errorf("Failed to parse type declarations: %v", l.Error)
-					return false
-				}
-				if comment != nil {
-					for i := 0; i < len(ss); i++ {
-						ss[i].Comment = comment
-					}
-					comment = nil
-				}
-				specs = append(specs, ss...)
-				continue
 			case token.PACKAGE:
 				if !ParsePackage(&l, &packageName) {
 					Errorf("Failed to parse package: %v", l.Error)
 					return false
 				}
+			case token.IMPORT:
+				if !ParseImports(&l, &parsedFile.Imports) {
+					Errorf("Failed to parse imports: %v", l.Error)
+					return false
+				}
+				continue
+			case token.COMMENT:
+				var c Comment
+				if ParseGofaComment(&l, &c) {
+					comment = &c
+					continue
+				}
+				l.Error = nil
+			case token.TYPE:
+				var specs []TypeSpec
+				if !ParseTypeDecl(&l, &specs) {
+					Errorf("Failed to parse type declarations: %v", l.Error)
+					return false
+				}
+				if comment != nil {
+					for i := 0; i < len(specs); i++ {
+						spec := &specs[i]
+						spec.Comment = comment
+					}
+					comment = nil
+				}
+				parsedFile.Specs = append(parsedFile.Specs, specs...)
+				continue
+			case token.EOF:
+				done = true
 			}
 			comment = nil
 			l.Next()
 		}
 
-		PackageSpecs[packageName] = append(PackageSpecs[packageName], FileSpec{Filename: f.Name(), Specs: specs})
-		if *listFiles {
-			fmt.Println(f.Name())
+		for packageName := range processedPackages {
+			delete(ReferencedPackages, packageName)
 		}
+		for packageName := range ReferencedPackages {
+			paths = append(paths, ResolvePackagePath(FindPackagePath(parsedFile.Imports, packageName)))
+			processedPackages[packageName] = struct{}{}
+		}
+		if err := PopulateFileSet(paths); err != nil {
+			Errorf("Failed to process additional packages: %v", err)
+			return false
+		}
+
+		ParsedPackages[packageName] = append(ParsedPackages[packageName], parsedFile)
 		return true
 	})
 
-	fmt.Println(PackageSpecs)
-
-	for packageName, fileSpecs := range PackageSpecs {
-		for i := 0; i < len(fileSpecs); i++ {
+	for packageName, parsedFiles := range ParsedPackages {
+		for _, parsedFile := range parsedFiles {
 			var g Generator
 			g.Package = packageName
+			g.Imports = parsedFile.Imports
 
-			fileSpec := &fileSpecs[i]
-			filename := fileSpec.Filename
-			specs := fileSpec.Specs
+			if _, ok := processedPackages[packageName]; ok {
+				continue
+			}
 
-			for j := 0; j < len(specs); j++ {
-				spec := &specs[j]
+			filename := parsedFile.Filename
+			specs := parsedFile.Specs
 
+			for _, spec := range specs {
 				if spec.Comment != nil {
 					for k := 0; k < len(spec.Comment.Formats); k++ {
 						format := spec.Comment.Formats[k]
-						format.Serialize(&g, spec)
+						format.Serialize(&g, &spec)
 					}
 				}
 			}
@@ -285,10 +354,14 @@ func main() {
 					file, err := os.Create(name)
 					if err != nil {
 						Errorf("Failed to create generated file %q: %v", name, err)
+						continue
 					}
-					defer file.Close()
-
 					g.Dump(file)
+					file.Close()
+
+					if *listFiles {
+						fmt.Println(filename)
+					}
 				}
 			}
 		}

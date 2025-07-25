@@ -1,6 +1,6 @@
 Now:
 
-- Change gofa:gpp to gpp:generate.
+- Fix resolving aliased imports.
 
 Later:
 

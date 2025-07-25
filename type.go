@@ -62,6 +62,8 @@ func ParseType(l *Lexer, t *Type) bool {
 	if ParseIdent(l, &ident) {
 		if ParseToken(l, token.PERIOD) {
 			t.Package = ident
+			ReferencedPackages[t.Package] = struct{}{}
+
 			if ParseIdent(l, &t.Name) {
 				ParseTypeArgs(l, &t.Args)
 				l.Error = nil
@@ -136,8 +138,12 @@ func ParseTypeDecl(l *Lexer, tss *[]TypeSpec) bool {
 				if !ParseTypeSpec(l, &ts) {
 					return false
 				}
+				if !ParseToken(l, token.SEMICOLON) {
+					return false
+				}
 				*tss = append(*tss, ts)
 			}
+			return true
 		}
 		l.Error = nil
 
@@ -147,6 +153,5 @@ func ParseTypeDecl(l *Lexer, tss *[]TypeSpec) bool {
 			return true
 		}
 	}
-
 	return false
 }

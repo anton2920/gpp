@@ -7,11 +7,6 @@ import (
 	"github.com/anton2920/gofa/encoding/json"
 )
 
-type RecordHeader struct {
-	ID    int32
-	Flags uint32
-}
-
 func main() {
 	var s json.Serializer
 

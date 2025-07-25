@@ -11,7 +11,7 @@ type Comment struct {
 }
 
 func ParseGofaComment(l *Lexer, comment *Comment) bool {
-	const prefix = "//gofa:gpp"
+	const prefix = "//gpp:generate"
 
 	tok := l.Peek()
 	if (l.Error != nil) || (tok.GoToken != token.COMMENT) || (!strings.StartsWith(tok.Literal, prefix)) {

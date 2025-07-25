@@ -9,25 +9,10 @@ import (
 
 type FormatJSON struct{}
 
-func (f *FormatJSON) SerializeSlice(g *Generator, name string, s *Slice) {
-	letters := []byte{'i', 'j', 'k', 'l', 'm', 'n'}
-	letter := letters[g.Tabs-1]
-
-	g.WriteString("s.PutArrayBegin()\n")
-	g.Printf("for %c := 0; %c < len(%s); %c++ {\n", letter, letter, name, letter)
-	g.Tabs++
-	{
-		f.SerializeType(g, fmt.Sprintf("%s[%c]", name, letter), &s.Element)
-	}
-	g.Tabs--
-	g.WriteString("}\n")
-	g.WriteString("s.PutArrayEnd()\n")
-}
-
 func FindLiteral(packageName string, typeName string) TypeLit {
-	fileSpecs := PackageSpecs[packageName]
-	for _, fileSpec := range fileSpecs {
-		for _, spec := range fileSpec.Specs {
+	parsedFiles := ParsedPackages[packageName]
+	for _, parsedFile := range parsedFiles {
+		for _, spec := range parsedFile.Specs {
 			if typeName == spec.Name {
 				if spec.Type.Literal == nil {
 					FindLiteral(strings.Or(spec.Type.Package, packageName), spec.Type.Name)
@@ -39,24 +24,71 @@ func FindLiteral(packageName string, typeName string) TypeLit {
 	return nil
 }
 
+func (f *FormatJSON) SerializeSlice(g *Generator, name string, s *Slice) {
+	letters := []byte{'i', 'j', 'k', 'l', 'm', 'n'}
+	letter := letters[g.Tabs-1]
+
+	g.WriteString("s.PutArrayBegin()\n")
+	g.Printf("for %c := 0; %c < len(%s); %c++ {\n", letter, letter, name, letter)
+	g.Tabs++
+	for {
+		if len(s.Element.Name) != 0 {
+			lit := FindLiteral(strings.Or(s.Element.Package, g.Package), s.Element.Name)
+			if _, ok := lit.(*Struct); !ok {
+				f.SerializeTypeLit(g, fmt.Sprintf("%s(%s[%c])", lit, name, letter), lit)
+				break
+			}
+		}
+		f.SerializeType(g, fmt.Sprintf("%s[%c]", name, letter), &s.Element)
+		break
+	}
+	g.Tabs--
+	g.WriteString("}\n")
+	g.WriteString("s.PutArrayEnd()\n")
+}
+
+func JSONPrivate(c byte) bool {
+	return (c == '_') || (unicode.IsLower(rune(c)))
+}
+
 func (f *FormatJSON) SerializeStructFields(g *Generator, name string, fields []StructField) {
 	for _, field := range fields {
 		if field.Tag == `json:"-"` {
 			continue
 		}
-
 		if len(field.Name) == 0 {
+			/* struct { myType } */
+			if (len(field.Type.Name) > 0) && (JSONPrivate(field.Type.Name[0])) {
+				continue
+			}
+			/* struct { int } */
+			if (field.Type.Literal != nil) && (JSONPrivate(field.Type.Literal.String()[0])) {
+				continue
+			}
+		}
+
+		if len(field.Type.Name) > 0 {
 			lit := FindLiteral(strings.Or(field.Type.Package, g.Package), field.Type.Name)
 			if s, ok := lit.(*Struct); ok {
-				f.SerializeStructFields(g, name+"."+field.Type.Name, s.Fields)
+				if len(field.Name) == 0 {
+					for i := 0; i < len(s.Fields); i++ {
+						f := &s.Fields[i]
+						if len(f.Type.Package) == 0 {
+							f.Type.Package = field.Type.Package
+						}
+					}
+					f.SerializeStructFields(g, name+"."+field.Type.Name, s.Fields)
+					continue
+				}
 			} else {
 				g.Printf("s.PutKey(`%s`)\n", field.Type.Name)
-				f.SerializeTypeLit(g, lit.String()+"("+name+"."+field.Type.Name+")", lit)
+				f.SerializeTypeLit(g, fmt.Sprintf("%s(%s.%s)", lit, name, strings.Or(field.Name, field.Type.Name)), lit)
+				continue
 			}
-		} else {
-			g.Printf("s.PutKey(`%s`)\n", field.Name)
-			f.SerializeType(g, name+"."+field.Name, &field.Type)
 		}
+
+		g.Printf("s.PutKey(`%s`)\n", field.Name)
+		f.SerializeType(g, name+"."+field.Name, &field.Type)
 	}
 }
 
@@ -85,9 +117,7 @@ func (f *FormatJSON) SerializeType(g *Generator, name string, t *Type) {
 		tabs := g.Tabs
 
 		if len(t.Package) > 0 {
-			/* TODO(anton2920): implement parsing of types from other packages. */
-			g.AddImports(Import{Path: GOFA + t.Package})
-
+			g.AddImport(t.Package)
 			g.WriteString(t.Package)
 			g.Tabs = 0
 			g.WriteRune('.')
@@ -99,7 +129,7 @@ func (f *FormatJSON) SerializeType(g *Generator, name string, t *Type) {
 }
 
 func (f *FormatJSON) Serialize(g *Generator, ts *TypeSpec) {
-	g.AddImports(Import{Path: GOFA + "encoding/json"})
+	g.AddImport(GOFA + "encoding/json")
 	name := VariableName(ts.Name, false)
 
 	g.Printf("\nfunc Put%sJSON(s *json.Serializer, %s *%s) {\n", ts.Name, name, ts.Name)
