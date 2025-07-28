@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"go/token"
 	"strconv"
+
+	"github.com/anton2920/gofa/go/lexer"
 )
 
 type TypeLit interface {
@@ -107,10 +109,10 @@ func (s *Struct) String() string {
 	return "struct"
 }
 
-func ParseArray(l *Lexer, a *Array) bool {
-	if ParseToken(l, token.LBRACK) {
-		if ParseIntLit(l, &a.Size) {
-			if ParseToken(l, token.RBRACK) {
+func ParseArray(l *lexer.Lexer, a *Array) bool {
+	if l.ParseToken(token.LBRACK) {
+		if l.ParseIntLit(&a.Size) {
+			if l.ParseToken(token.RBRACK) {
 				if ParseType(l, &a.Element) {
 					return true
 				}
@@ -120,10 +122,10 @@ func ParseArray(l *Lexer, a *Array) bool {
 	return false
 }
 
-func ParseFloat(l *Lexer, f *Float) bool {
+func ParseFloat(l *lexer.Lexer, f *Float) bool {
 	var ident string
 
-	if ParseIdent(l, &ident) {
+	if l.ParseIdent(&ident) {
 		switch ident {
 		default:
 			return false
@@ -138,10 +140,10 @@ func ParseFloat(l *Lexer, f *Float) bool {
 	return false
 }
 
-func ParseInt(l *Lexer, i *Int) bool {
+func ParseInt(l *lexer.Lexer, i *Int) bool {
 	var ident string
 
-	if ParseIdent(l, &ident) {
+	if l.ParseIdent(&ident) {
 		switch ident {
 		default:
 			return false
@@ -175,8 +177,8 @@ func ParseInt(l *Lexer, i *Int) bool {
 	return false
 }
 
-func ParsePointer(l *Lexer, p *Pointer) bool {
-	if ParseToken(l, token.MUL) {
+func ParsePointer(l *lexer.Lexer, p *Pointer) bool {
+	if l.ParseToken(token.MUL) {
 		if ParseType(l, &p.BaseType) {
 			return true
 		}
@@ -184,9 +186,9 @@ func ParsePointer(l *Lexer, p *Pointer) bool {
 	return false
 }
 
-func ParseSlice(l *Lexer, s *Slice) bool {
-	if ParseToken(l, token.LBRACK) {
-		if ParseToken(l, token.RBRACK) {
+func ParseSlice(l *lexer.Lexer, s *Slice) bool {
+	if l.ParseToken(token.LBRACK) {
+		if l.ParseToken(token.RBRACK) {
 			if ParseType(l, &s.Element) {
 				return true
 			}
@@ -195,10 +197,10 @@ func ParseSlice(l *Lexer, s *Slice) bool {
 	return false
 }
 
-func ParseString(l *Lexer, s *String) bool {
+func ParseString(l *lexer.Lexer, s *String) bool {
 	var ident string
 
-	if ParseIdent(l, &ident) {
+	if l.ParseIdent(&ident) {
 		if ident == "string" {
 			return true
 		}
@@ -207,23 +209,23 @@ func ParseString(l *Lexer, s *String) bool {
 	return false
 }
 
-func ParseStructFields(l *Lexer, fs *[]StructField) bool {
+func ParseStructFields(l *lexer.Lexer, fs *[]StructField) bool {
 	pos := l.Position
 
 	/* Option 1: IdentList Type. */
 	var idents []string
-	if ParseIdentList(l, &idents) {
+	if l.ParseIdentList(&idents) {
 		var t Type
 		if ParseType(l, &t) {
 			var tag string
-			ParseStringLit(l, &tag)
+			l.ParseStringLit(&tag)
 			l.Error = nil
 
 			for i := 0; i < len(idents); i++ {
 				*fs = append(*fs, StructField{Name: idents[i], Type: t, Tag: tag})
 			}
 
-			ParseToken(l, token.SEMICOLON)
+			l.ParseToken(token.SEMICOLON)
 			l.Error = nil
 			return true
 		}
@@ -236,12 +238,12 @@ func ParseStructFields(l *Lexer, fs *[]StructField) bool {
 	var t Type
 	if ParseType(l, &t) {
 		var tag string
-		ParseStringLit(l, &tag)
+		l.ParseStringLit(&tag)
 		l.Error = nil
 
 		*fs = append(*fs, StructField{Type: t, Tag: tag})
 
-		ParseToken(l, token.SEMICOLON)
+		l.ParseToken(token.SEMICOLON)
 		l.Error = nil
 		return true
 	}
@@ -249,10 +251,10 @@ func ParseStructFields(l *Lexer, fs *[]StructField) bool {
 	return false
 }
 
-func ParseStruct(l *Lexer, s *Struct) bool {
-	if ParseToken(l, token.STRUCT) {
-		if ParseToken(l, token.LBRACE) {
-			for !ParseToken(l, token.RBRACE) {
+func ParseStruct(l *lexer.Lexer, s *Struct) bool {
+	if l.ParseToken(token.STRUCT) {
+		if l.ParseToken(token.LBRACE) {
+			for !l.ParseToken(token.RBRACE) {
 				l.Error = nil
 				if !ParseStructFields(l, &s.Fields) {
 					return false
@@ -265,10 +267,10 @@ func ParseStruct(l *Lexer, s *Struct) bool {
 	return false
 }
 
-func ParseTypeLit(l *Lexer, tl *TypeLit) bool {
+func ParseTypeLit(l *lexer.Lexer, tl *TypeLit) bool {
 	pos := l.Position
 
-	tok := l.Peek()
+	tok := l.Curr()
 	switch tok.GoToken {
 	case token.IDENT:
 		switch tok.Literal {

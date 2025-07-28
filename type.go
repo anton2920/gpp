@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"go/token"
+
+	"github.com/anton2920/gofa/go/lexer"
 )
 
 type Type struct {
@@ -52,19 +54,19 @@ func (t *Type) String() string {
 	return buf.String()
 }
 
-func ParseType(l *Lexer, t *Type) bool {
+func ParseType(l *lexer.Lexer, t *Type) bool {
 	if ParseTypeLit(l, &t.Literal) {
 		return true
 	}
 	l.Error = nil
 
 	var ident string
-	if ParseIdent(l, &ident) {
-		if ParseToken(l, token.PERIOD) {
+	if l.ParseIdent(&ident) {
+		if l.ParseToken(token.PERIOD) {
 			t.Package = ident
 			ReferencedPackages[t.Package] = struct{}{}
 
-			if ParseIdent(l, &t.Name) {
+			if l.ParseIdent(&t.Name) {
 				ParseTypeArgs(l, &t.Args)
 				l.Error = nil
 				return true
@@ -81,9 +83,9 @@ func ParseType(l *Lexer, t *Type) bool {
 	return false
 }
 
-func ParseTypeArgs(l *Lexer, ts *[]Type) bool {
-	if ParseToken(l, token.LBRACK) {
-		for l.Peek().GoToken != token.RBRACK {
+func ParseTypeArgs(l *lexer.Lexer, ts *[]Type) bool {
+	if l.ParseToken(token.LBRACK) {
+		for l.Curr().GoToken != token.RBRACK {
 			var t Type
 			if !ParseType(l, &t) {
 				return false
@@ -95,13 +97,13 @@ func ParseTypeArgs(l *Lexer, ts *[]Type) bool {
 	return false
 }
 
-func ParseTypeParams(l *Lexer, tparams *[]TypeParam) bool {
-	if ParseToken(l, token.LBRACK) {
+func ParseTypeParams(l *lexer.Lexer, tparams *[]TypeParam) bool {
+	if l.ParseToken(token.LBRACK) {
 		var idents []string
-		if ParseIdentList(l, &idents) {
+		if l.ParseIdentList(&idents) {
 			var t Type
 			if ParseType(l, &t) {
-				if ParseToken(l, token.RBRACK) {
+				if l.ParseToken(token.RBRACK) {
 					for i := 0; i < len(idents); i++ {
 						*tparams = append(*tparams, TypeParam{Name: idents[i], Constraint: t})
 					}
@@ -113,12 +115,12 @@ func ParseTypeParams(l *Lexer, tparams *[]TypeParam) bool {
 	return false
 }
 
-func ParseTypeSpec(l *Lexer, ts *TypeSpec) bool {
-	if ParseIdent(l, &ts.Name) {
+func ParseTypeSpec(l *lexer.Lexer, ts *TypeSpec) bool {
+	if l.ParseIdent(&ts.Name) {
 		ParseTypeParams(l, &ts.Params)
 		l.Error = nil
 
-		if ParseToken(l, token.ASSIGN) {
+		if l.ParseToken(token.ASSIGN) {
 			ts.Alias = true
 		}
 		l.Error = nil
@@ -130,15 +132,15 @@ func ParseTypeSpec(l *Lexer, ts *TypeSpec) bool {
 	return false
 }
 
-func ParseTypeDecl(l *Lexer, tss *[]TypeSpec) bool {
-	if ParseToken(l, token.TYPE) {
-		if ParseToken(l, token.LPAREN) {
-			for l.Peek().GoToken != token.RPAREN {
+func ParseTypeDecl(l *lexer.Lexer, tss *[]TypeSpec) bool {
+	if l.ParseToken(token.TYPE) {
+		if l.ParseToken(token.LPAREN) {
+			for l.Curr().GoToken != token.RPAREN {
 				var ts TypeSpec
 				if !ParseTypeSpec(l, &ts) {
 					return false
 				}
-				if !ParseToken(l, token.SEMICOLON) {
+				if !l.ParseToken(token.SEMICOLON) {
 					return false
 				}
 				*tss = append(*tss, ts)

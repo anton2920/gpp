@@ -7,6 +7,7 @@ import (
 
 type Format interface {
 	Serialize(*Generator, *TypeSpec)
+	Deserialize(*Generator, *TypeSpec)
 }
 
 /* NOTE(anton2920): this supports only ASCII. */

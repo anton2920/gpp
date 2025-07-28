@@ -1,5 +1,6 @@
 Now:
 
+- Move 'Parse*' functions from lexer.
 - Fix 'dot'-imports.
 - Add understanding of function and interface types.
 

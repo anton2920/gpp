@@ -10,8 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strconv"
 
+	"github.com/anton2920/gofa/go/lexer"
 	"github.com/anton2920/gofa/strings"
 )
 
@@ -64,75 +64,6 @@ func ReadEntireFile(filename string) ([]byte, error) {
 	}
 
 	return contents, nil
-}
-
-func ParseToken(l *Lexer, expectedTok token.Token) bool {
-	if l.Error != nil {
-		return false
-	}
-
-	if expectedTok != token.COMMENT {
-		for l.Peek().GoToken == token.COMMENT {
-			l.Next()
-		}
-	}
-
-	tok := l.Peek()
-	if tok.GoToken == expectedTok {
-		l.Next()
-		return true
-	}
-
-	l.Error = fmt.Errorf("%s:%d:%d: expected %q, got %q (%q)", tok.Position.Filename, tok.Position.Line, tok.Position.Column, expectedTok, tok.GoToken, tok.Literal)
-	return false
-}
-
-func ParseIdent(l *Lexer, ident *string) bool {
-	if ParseToken(l, token.IDENT) {
-		*ident = l.Prev().Literal
-		return true
-	}
-	return false
-}
-
-func ParseIdentList(l *Lexer, idents *[]string) bool {
-	var ident string
-
-	for ParseIdent(l, &ident) {
-		*idents = append(*idents, ident)
-		if !ParseToken(l, token.COMMA) {
-			l.Error = nil
-			return true
-		}
-	}
-
-	return len(*idents) != 0
-}
-
-func ParseIntLit(l *Lexer, n *int) bool {
-	if ParseToken(l, token.INT) {
-		var err error
-		*n, err = strconv.Atoi(l.Prev().Literal)
-		if err != nil {
-			l.Error = fmt.Errorf("failed to parse int value: %v", err)
-		}
-		return err == nil
-	}
-	return false
-}
-
-func ParseStringLit(l *Lexer, s *string) bool {
-	if ParseToken(l, token.STRING) {
-		*s = l.Prev().Literal
-		if ((*s)[0] == '"') || ((*s)[0] == '`') {
-			*s = (*s)[1:]
-		}
-		if ((*s)[len(*s)-1] == '"') || ((*s)[len(*s)-1] == '`') {
-			*s = (*s)[:len(*s)-1]
-		}
-		return true
-	}
-	return false
 }
 
 func Usage() {
@@ -271,14 +202,15 @@ func main() {
 		var parsedFile ParsedFile
 		var packageName string
 		var paths []string
-		var l Lexer
+		var l lexer.Lexer
 
 		parsedFile.Filename = f.Name()
+		l.FileSet = FileSet
 		l.Scanner.Init(f, Sources[f.Base()], nil, scanner.ScanComments)
 
 		done := false
 		for !done {
-			switch l.Peek().GoToken {
+			switch l.Curr().GoToken {
 			case token.PACKAGE:
 				if !ParsePackage(&l, &packageName) {
 					Errorf("Failed to parse package: %v", l.Error)
@@ -359,6 +291,7 @@ func main() {
 					for k := 0; k < len(spec.Comment.Formats); k++ {
 						format := spec.Comment.Formats[k]
 						format.Serialize(&g, &spec)
+						format.Deserialize(&g, &spec)
 					}
 				}
 			}
