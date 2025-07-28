@@ -73,7 +73,7 @@ func TestGetUserJSON(t *testing.T) {
 	}
 }
 
-func BenchmarkJMarshalUserJSON(b *testing.B) {
+func BenchmarkMarshalUserJSON(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_, err := stdjson.Marshal(testUser)
 		if err != nil {
