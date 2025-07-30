@@ -89,6 +89,11 @@ func PopulateFileSet(paths []string) error {
 
 	for i := 0; i < len(paths); i++ {
 		path := paths[i]
+		if path == Stdin {
+			files = append(files, path)
+			continue
+		}
+
 		st, err := os.Stat(path)
 		if err != nil {
 			return fmt.Errorf("failed to stat %q: %v", path, err)
