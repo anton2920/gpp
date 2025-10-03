@@ -6,42 +6,48 @@ import (
 	"strconv"
 )
 
-func ParseToken(l *Lexer, expectedTok token.Token) bool {
-	if l.Error != nil {
+type Parser struct {
+	Lexer
+
+	Error error
+}
+
+func (p *Parser) Token(expectedTok token.Token) bool {
+	if p.Error != nil {
 		return false
 	}
 
 	if expectedTok != token.COMMENT {
-		for l.Curr().GoToken == token.COMMENT {
-			l.Next()
+		for p.Curr().GoToken == token.COMMENT {
+			p.Next()
 		}
 	}
 
-	tok := l.Curr()
+	tok := p.Curr()
 	if tok.GoToken == expectedTok {
-		l.Next()
+		p.Next()
 		return true
 	}
 
-	l.Error = fmt.Errorf("%s:%d:%d: expected %q, got %q (%q)", tok.Position.Filename, tok.Position.Line, tok.Position.Column, expectedTok, tok.GoToken, tok.Literal)
+	p.Error = fmt.Errorf("%s:%d:%d: expected %q, got %q (%q)", tok.Position.Filename, tok.Position.Line, tok.Position.Column, expectedTok, tok.GoToken, tok.Literal)
 	return false
 }
 
-func ParseIdent(l *Lexer, ident *string) bool {
-	if ParseToken(l, token.IDENT) {
-		*ident = l.Prev().Literal
+func (p *Parser) Ident(ident *string) bool {
+	if p.Token(token.IDENT) {
+		*ident = p.Prev().Literal
 		return true
 	}
 	return false
 }
 
-func ParseIdentList(l *Lexer, idents *[]string) bool {
+func (p *Parser) IdentList(idents *[]string) bool {
 	var ident string
 
-	for ParseIdent(l, &ident) {
+	for p.Ident(&ident) {
 		*idents = append(*idents, ident)
-		if !ParseToken(l, token.COMMA) {
-			l.Error = nil
+		if !p.Token(token.COMMA) {
+			p.Error = nil
 			return true
 		}
 	}
@@ -49,21 +55,21 @@ func ParseIdentList(l *Lexer, idents *[]string) bool {
 	return len(*idents) != 0
 }
 
-func ParseIntLit(l *Lexer, n *int) bool {
-	if ParseToken(l, token.INT) {
+func (p *Parser) IntLit(n *int) bool {
+	if p.Token(token.INT) {
 		var err error
-		*n, err = strconv.Atoi(l.Prev().Literal)
+		*n, err = strconv.Atoi(p.Prev().Literal)
 		if err != nil {
-			l.Error = fmt.Errorf("failed to parse int value: %v", err)
+			p.Error = fmt.Errorf("failed to parse int value: %v", err)
 		}
 		return err == nil
 	}
 	return false
 }
 
-func ParseStringLit(l *Lexer, s *string) bool {
-	if ParseToken(l, token.STRING) {
-		*s = l.Prev().Literal
+func (p *Parser) StringLit(s *string) bool {
+	if p.Token(token.STRING) {
+		*s = p.Prev().Literal
 		if ((*s)[0] == '"') || ((*s)[0] == '`') {
 			*s = (*s)[1:]
 		}

@@ -107,11 +107,11 @@ func (s *Struct) String() string {
 	return "struct"
 }
 
-func ParseArray(l *Lexer, a *Array) bool {
-	if ParseToken(l, token.LBRACK) {
-		if ParseIntLit(l, &a.Size) {
-			if ParseToken(l, token.RBRACK) {
-				if ParseType(l, &a.Element) {
+func (p *Parser) Array(a *Array) bool {
+	if p.Token(token.LBRACK) {
+		if p.IntLit(&a.Size) {
+			if p.Token(token.RBRACK) {
+				if p.Type(&a.Element) {
 					return true
 				}
 			}
@@ -120,10 +120,10 @@ func ParseArray(l *Lexer, a *Array) bool {
 	return false
 }
 
-func ParseFloat(l *Lexer, f *Float) bool {
+func (p *Parser) Float(f *Float) bool {
 	var ident string
 
-	if ParseIdent(l, &ident) {
+	if p.Ident(&ident) {
 		switch ident {
 		default:
 			return false
@@ -138,10 +138,10 @@ func ParseFloat(l *Lexer, f *Float) bool {
 	return false
 }
 
-func ParseInt(l *Lexer, i *Int) bool {
+func (p *Parser) Int(i *Int) bool {
 	var ident string
 
-	if ParseIdent(l, &ident) {
+	if p.Ident(&ident) {
 		switch ident {
 		default:
 			return false
@@ -175,19 +175,19 @@ func ParseInt(l *Lexer, i *Int) bool {
 	return false
 }
 
-func ParsePointer(l *Lexer, p *Pointer) bool {
-	if ParseToken(l, token.MUL) {
-		if ParseType(l, &p.BaseType) {
+func (p *Parser) Pointer(ptr *Pointer) bool {
+	if p.Token(token.MUL) {
+		if p.Type(&ptr.BaseType) {
 			return true
 		}
 	}
 	return false
 }
 
-func ParseSlice(l *Lexer, s *Slice) bool {
-	if ParseToken(l, token.LBRACK) {
-		if ParseToken(l, token.RBRACK) {
-			if ParseType(l, &s.Element) {
+func (p *Parser) Slice(s *Slice) bool {
+	if p.Token(token.LBRACK) {
+		if p.Token(token.RBRACK) {
+			if p.Type(&s.Element) {
 				return true
 			}
 		}
@@ -195,10 +195,10 @@ func ParseSlice(l *Lexer, s *Slice) bool {
 	return false
 }
 
-func ParseString(l *Lexer, s *String) bool {
+func (p *Parser) String(s *String) bool {
 	var ident string
 
-	if ParseIdent(l, &ident) {
+	if p.Ident(&ident) {
 		if ident == "string" {
 			return true
 		}
@@ -207,54 +207,54 @@ func ParseString(l *Lexer, s *String) bool {
 	return false
 }
 
-func ParseStructFields(l *Lexer, fs *[]StructField) bool {
-	pos := l.Position
+func (p *Parser) StructFields(fs *[]StructField) bool {
+	pos := p.Position
 
 	/* Option 1: IdentList Type. */
 	var idents []string
-	if ParseIdentList(l, &idents) {
+	if p.IdentList(&idents) {
 		var t Type
-		if ParseType(l, &t) {
+		if p.Type(&t) {
 			var tag string
-			ParseStringLit(l, &tag)
-			l.Error = nil
+			p.StringLit(&tag)
+			p.Error = nil
 
 			for i := 0; i < len(idents); i++ {
 				*fs = append(*fs, StructField{Name: idents[i], Type: t, Tag: tag})
 			}
 
-			ParseToken(l, token.SEMICOLON)
-			l.Error = nil
+			p.Token(token.SEMICOLON)
+			p.Error = nil
 			return true
 		}
 	}
 
-	l.Position = pos
-	l.Error = nil
+	p.Position = pos
+	p.Error = nil
 
 	/* Option 2: Type. */
 	var t Type
-	if ParseType(l, &t) {
+	if p.Type(&t) {
 		var tag string
-		ParseStringLit(l, &tag)
-		l.Error = nil
+		p.StringLit(&tag)
+		p.Error = nil
 
 		*fs = append(*fs, StructField{Type: t, Tag: tag})
 
-		ParseToken(l, token.SEMICOLON)
-		l.Error = nil
+		p.Token(token.SEMICOLON)
+		p.Error = nil
 		return true
 	}
 
 	return false
 }
 
-func ParseStruct(l *Lexer, s *Struct) bool {
-	if ParseToken(l, token.STRUCT) {
-		if ParseToken(l, token.LBRACE) {
-			for !ParseToken(l, token.RBRACE) {
-				l.Error = nil
-				if !ParseStructFields(l, &s.Fields) {
+func (p *Parser) Struct(s *Struct) bool {
+	if p.Token(token.STRUCT) {
+		if p.Token(token.LBRACE) {
+			for !p.Token(token.RBRACE) {
+				p.Error = nil
+				if !p.StructFields(&s.Fields) {
 					return false
 				}
 			}
@@ -265,64 +265,64 @@ func ParseStruct(l *Lexer, s *Struct) bool {
 	return false
 }
 
-func ParseTypeLit(l *Lexer, tl *TypeLit) bool {
-	pos := l.Position
+func (p *Parser) TypeLit(tl *TypeLit) bool {
+	pos := p.Position
 
-	tok := l.Curr()
+	tok := p.Curr()
 	switch tok.GoToken {
 	case token.IDENT:
 		switch tok.Literal {
 		case "int", "uint", "int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64":
 			i := new(Int)
-			if ParseInt(l, i) {
+			if p.Int(i) {
 				*tl = i
 				return true
 			}
 			return false
 		case "float32", "float64":
 			f := new(Float)
-			if ParseFloat(l, f) {
+			if p.Float(f) {
 				*tl = f
 				return true
 			}
 			return false
 		case "string":
 			s := new(String)
-			if ParseString(l, s) {
+			if p.String(s) {
 				*tl = s
 				return true
 			}
 			return false
 		}
 	case token.LBRACK:
-		switch l.Next().GoToken {
+		switch p.Next().GoToken {
 		case token.INT:
-			l.Position = pos
+			p.Position = pos
 			a := new(Array)
-			if ParseArray(l, a) {
+			if p.Array(a) {
 				*tl = a
 				return true
 			}
 			return false
 		case token.RBRACK:
-			l.Position = pos
+			p.Position = pos
 			s := new(Slice)
-			if ParseSlice(l, s) {
+			if p.Slice(s) {
 				*tl = s
 				return true
 			}
 			return false
 		}
 	case token.MUL:
-		p := new(Pointer)
-		if ParsePointer(l, p) {
-			*tl = p
+		ptr := new(Pointer)
+		if p.Pointer(ptr) {
+			*tl = ptr
 			return true
 		}
 		return false
 	case token.STRUCT:
 		s := new(Struct)
-		if ParseStruct(l, s) {
+		if p.Struct(s) {
 			*tl = s
 			return true
 		}

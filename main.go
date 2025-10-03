@@ -185,38 +185,38 @@ func main() {
 		var parsedFile ParsedFile
 		var packageName string
 		var paths []string
-		var l Lexer
+		var p Parser
 
 		parsedFile.Filename = f.Name()
-		l.FileSet = FileSet
-		l.Scanner.Init(f, Sources[f.Base()], nil, scanner.ScanComments)
+		p.FileSet = FileSet
+		p.Scanner.Init(f, Sources[f.Base()], nil, scanner.ScanComments)
 
 		done := false
 		for !done {
-			switch l.Curr().GoToken {
+			switch p.Curr().GoToken {
 			case token.PACKAGE:
-				if !ParsePackage(&l, &packageName) {
-					Errorf("Failed to parse package: %v", l.Error)
+				if !p.Package(&packageName) {
+					Errorf("Failed to parse package: %v", p.Error)
 					return false
 				}
 			case token.IMPORT:
-				if !ParseImports(&l, &parsedFile.Imports) {
-					Errorf("Failed to parse imports: %v", l.Error)
+				if !p.Imports(&parsedFile.Imports) {
+					Errorf("Failed to parse imports: %v", p.Error)
 					return false
 				}
 				continue
 			case token.COMMENT:
 				var c Comment
-				if ParseGofaComment(&l, &c) {
+				if p.GofaComment(&c) {
 					comment = &c
 					continue
 				}
-				l.Error = nil
+				p.Error = nil
 			case token.TYPE:
-				if l.Prev().GoToken != token.LPAREN {
+				if p.Prev().GoToken != token.LPAREN {
 					var specs []TypeSpec
-					if !ParseTypeDecl(&l, &specs) {
-						Errorf("Failed to parse type declarations: %v", l.Error)
+					if !p.TypeDecl(&specs) {
+						Errorf("Failed to parse type declarations: %v", p.Error)
 						return false
 					}
 					if comment != nil {
@@ -233,7 +233,7 @@ func main() {
 				done = true
 			}
 			comment = nil
-			l.Next()
+			p.Next()
 		}
 
 		for packageName := range processedPackages {

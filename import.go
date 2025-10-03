@@ -25,37 +25,37 @@ func (is Imports) Less(i int, j int) bool {
 }
 func (is Imports) Swap(i int, j int) { is[i], is[j] = is[j], is[i] }
 
-func ParseImport(l *Lexer, i *Import) bool {
-	ParseIdent(l, &i.QualifiedName)
-	l.Error = nil
+func (p *Parser) Import(i *Import) bool {
+	p.Ident(&i.QualifiedName)
+	p.Error = nil
 
-	if ParseToken(l, token.PERIOD) {
+	if p.Token(token.PERIOD) {
 		i.WithoutQualifier = true
 	}
-	l.Error = nil
+	p.Error = nil
 
-	return ParseStringLit(l, &i.Path)
+	return p.StringLit(&i.Path)
 }
 
-func ParseImports(l *Lexer, is *Imports) bool {
-	if ParseToken(l, token.IMPORT) {
-		if ParseToken(l, token.LPAREN) {
-			for l.Curr().GoToken != token.RPAREN {
+func (p *Parser) Imports(is *Imports) bool {
+	if p.Token(token.IMPORT) {
+		if p.Token(token.LPAREN) {
+			for p.Curr().GoToken != token.RPAREN {
 				var i Import
-				if !ParseImport(l, &i) {
+				if !p.Import(&i) {
 					return false
 				}
-				if !ParseToken(l, token.SEMICOLON) {
+				if !p.Token(token.SEMICOLON) {
 					return false
 				}
 				*is = append(*is, i)
 			}
 			return true
 		}
-		l.Error = nil
+		p.Error = nil
 
 		var i Import
-		if ParseImport(l, &i) {
+		if p.Import(&i) {
 			*is = append(*is, i)
 			return true
 		}

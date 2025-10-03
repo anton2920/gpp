@@ -1,36 +1,30 @@
 package main
 
 import (
-	"fmt"
 	"go/scanner"
 	"go/token"
 )
 
 type Token struct {
-	Position token.Position
-	GoToken  token.Token
-	Literal  string
+	token.Position
+
+	GoToken token.Token
+	Literal string
 }
 
 type Lexer struct {
-	Scanner scanner.Scanner
-	FileSet *token.FileSet
+	scanner.Scanner
+	*token.FileSet
 
 	Tokens   []Token
 	Position int
-
-	Error error
-}
-
-func (t *Token) String() string {
-	return fmt.Sprintf("%s\t%s\t%q\n", t.Position, t.GoToken, t.Literal)
 }
 
 func (l *Lexer) Curr() Token {
 	if l.Position == len(l.Tokens) {
 		pos, tok, lit := l.Scanner.Scan()
 		l.Tokens = append(l.Tokens, Token{Position: l.FileSet.Position(pos), GoToken: tok, Literal: lit})
-		//debug.Printf("[lexer]: %s", l.Tokens[l.Position])
+		//debug.Printf("[lexer]: %s\t%s\t%q", l.Tokens[l.Position].Position, l.Tokens[l.Position].GoToken, l.Tokens[l.Position].Literal)
 	}
 	return l.Tokens[l.Position]
 }

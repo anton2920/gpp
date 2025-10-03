@@ -4,9 +4,9 @@ import (
 	"go/token"
 )
 
-func ParsePackage(l *Lexer, p *string) bool {
-	if ParseToken(l, token.PACKAGE) {
-		if ParseIdent(l, p) {
+func (p *Parser) Package(pack *string) bool {
+	if p.Token(token.PACKAGE) {
+		if p.Ident(pack) {
 			return true
 		}
 	}

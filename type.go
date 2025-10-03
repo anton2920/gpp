@@ -52,40 +52,40 @@ func (t *Type) String() string {
 	return buf.String()
 }
 
-func ParseType(l *Lexer, t *Type) bool {
-	if ParseTypeLit(l, &t.Literal) {
+func (p *Parser) Type(t *Type) bool {
+	if p.TypeLit(&t.Literal) {
 		return true
 	}
-	l.Error = nil
+	p.Error = nil
 
 	var ident string
-	if ParseIdent(l, &ident) {
-		if ParseToken(l, token.PERIOD) {
+	if p.Ident(&ident) {
+		if p.Token(token.PERIOD) {
 			t.Package = ident
 			ReferencedPackages[t.Package] = struct{}{}
 
-			if ParseIdent(l, &t.Name) {
-				ParseTypeArgs(l, &t.Args)
-				l.Error = nil
+			if p.Ident(&t.Name) {
+				p.TypeArgs(&t.Args)
+				p.Error = nil
 				return true
 			}
 		}
-		l.Error = nil
+		p.Error = nil
 		t.Name = ident
 
-		ParseTypeArgs(l, &t.Args)
-		l.Error = nil
+		p.TypeArgs(&t.Args)
+		p.Error = nil
 		return true
 	}
 
 	return false
 }
 
-func ParseTypeArgs(l *Lexer, ts *[]Type) bool {
-	if ParseToken(l, token.LBRACK) {
-		for l.Curr().GoToken != token.RBRACK {
+func (p *Parser) TypeArgs(ts *[]Type) bool {
+	if p.Token(token.LBRACK) {
+		for p.Curr().GoToken != token.RBRACK {
 			var t Type
-			if !ParseType(l, &t) {
+			if !p.Type(&t) {
 				return false
 			}
 			*ts = append(*ts, t)
@@ -95,13 +95,13 @@ func ParseTypeArgs(l *Lexer, ts *[]Type) bool {
 	return false
 }
 
-func ParseTypeParams(l *Lexer, tparams *[]TypeParam) bool {
-	if ParseToken(l, token.LBRACK) {
+func (p *Parser) TypeParams(tparams *[]TypeParam) bool {
+	if p.Token(token.LBRACK) {
 		var idents []string
-		if ParseIdentList(l, &idents) {
+		if p.IdentList(&idents) {
 			var t Type
-			if ParseType(l, &t) {
-				if ParseToken(l, token.RBRACK) {
+			if p.Type(&t) {
+				if p.Token(token.RBRACK) {
 					for i := 0; i < len(idents); i++ {
 						*tparams = append(*tparams, TypeParam{Name: idents[i], Constraint: t})
 					}
@@ -113,42 +113,42 @@ func ParseTypeParams(l *Lexer, tparams *[]TypeParam) bool {
 	return false
 }
 
-func ParseTypeSpec(l *Lexer, ts *TypeSpec) bool {
-	if ParseIdent(l, &ts.Name) {
-		ParseTypeParams(l, &ts.Params)
-		l.Error = nil
+func (p *Parser) TypeSpec(ts *TypeSpec) bool {
+	if p.Ident(&ts.Name) {
+		p.TypeParams(&ts.Params)
+		p.Error = nil
 
-		if ParseToken(l, token.ASSIGN) {
+		if p.Token(token.ASSIGN) {
 			ts.Alias = true
 		}
-		l.Error = nil
+		p.Error = nil
 
-		if ParseType(l, &ts.Type) {
+		if p.Type(&ts.Type) {
 			return true
 		}
 	}
 	return false
 }
 
-func ParseTypeDecl(l *Lexer, tss *[]TypeSpec) bool {
-	if ParseToken(l, token.TYPE) {
-		if ParseToken(l, token.LPAREN) {
-			for l.Curr().GoToken != token.RPAREN {
+func (p *Parser) TypeDecl(tss *[]TypeSpec) bool {
+	if p.Token(token.TYPE) {
+		if p.Token(token.LPAREN) {
+			for p.Curr().GoToken != token.RPAREN {
 				var ts TypeSpec
-				if !ParseTypeSpec(l, &ts) {
+				if !p.TypeSpec(&ts) {
 					return false
 				}
-				if !ParseToken(l, token.SEMICOLON) {
+				if !p.Token(token.SEMICOLON) {
 					return false
 				}
 				*tss = append(*tss, ts)
 			}
 			return true
 		}
-		l.Error = nil
+		p.Error = nil
 
 		var ts TypeSpec
-		if ParseTypeSpec(l, &ts) {
+		if p.TypeSpec(&ts) {
 			*tss = append(*tss, ts)
 			return true
 		}
