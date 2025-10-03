@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
 	"go/scanner"
@@ -23,8 +22,6 @@ type ParsedFile struct {
 
 const GOFA = "github.com/anton2920/gofa/"
 
-const Stdin = "<stdin>"
-
 var (
 	ReferencedPackages = make(map[string]struct{})
 	ParsedPackages     = make(map[string][]ParsedFile)
@@ -32,21 +29,7 @@ var (
 	Sources            = make(map[int][]byte)
 )
 
-func ReadEntireStdin() ([]byte, error) {
-	var buf bytes.Buffer
-
-	if _, err := io.Copy(&buf, os.Stdin); err != nil {
-		return nil, fmt.Errorf("failed to read from stdin: %v", err)
-	}
-
-	return buf.Bytes(), nil
-}
-
 func ReadEntireFile(filename string) ([]byte, error) {
-	if filename == Stdin {
-		return ReadEntireStdin()
-	}
-
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open %q: %v", filename, err)
@@ -89,10 +72,6 @@ func PopulateFileSet(paths []string) error {
 
 	for i := 0; i < len(paths); i++ {
 		path := paths[i]
-		if path == Stdin {
-			files = append(files, path)
-			continue
-		}
 
 		st, err := os.Stat(path)
 		if err != nil {
@@ -195,7 +174,7 @@ func main() {
 
 	paths := flag.Args()
 	if len(paths) == 0 {
-		paths = append(paths, Stdin)
+		paths = append(paths, ".")
 	}
 	if err := PopulateFileSet(paths); err != nil {
 		Fatalf("Failed to process arguments: %v", err)
@@ -302,21 +281,17 @@ func main() {
 			}
 
 			if g.ShouldDump() {
-				if filename == Stdin {
-					g.Dump(os.Stdout)
-				} else {
-					name := GeneratedName(filename)
-					file, err := os.Create(name)
-					if err != nil {
-						Errorf("Failed to create generated file %q: %v", name, err)
-						continue
-					}
-					g.Dump(file)
-					file.Close()
+				name := GeneratedName(filename)
+				file, err := os.Create(name)
+				if err != nil {
+					Errorf("Failed to create generated file %q: %v", name, err)
+					continue
+				}
+				g.Dump(file)
+				file.Close()
 
-					if *listFiles {
-						fmt.Println(filename)
-					}
+				if *listFiles {
+					fmt.Println(filename)
 				}
 			}
 		}
