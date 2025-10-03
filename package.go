@@ -2,13 +2,11 @@ package main
 
 import (
 	"go/token"
-
-	"github.com/anton2920/gofa/go/lexer"
 )
 
-func ParsePackage(l *lexer.Lexer, p *string) bool {
-	if l.ParseToken(token.PACKAGE) {
-		if l.ParseIdent(p) {
+func ParsePackage(l *Lexer, p *string) bool {
+	if ParseToken(l, token.PACKAGE) {
+		if ParseIdent(l, p) {
 			return true
 		}
 	}

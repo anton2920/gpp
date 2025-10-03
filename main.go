@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/anton2920/gofa/go/lexer"
 	"github.com/anton2920/gofa/strings"
 )
 
@@ -186,7 +185,7 @@ func main() {
 		var parsedFile ParsedFile
 		var packageName string
 		var paths []string
-		var l lexer.Lexer
+		var l Lexer
 
 		parsedFile.Filename = f.Name()
 		l.FileSet = FileSet
