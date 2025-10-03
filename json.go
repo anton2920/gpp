@@ -283,9 +283,7 @@ func (f *EncodingJSON) Deserialize(g *Generator, ts *TypeSpec) {
 
 	g.WriteString("var key string\n\n")
 	f.DeserializeType(g, name, &ts.Type)
-	g.Tabs--
-	g.WriteRune('\n')
-	g.Tabs++
+	g.WithoutTabs().WriteRune('\n')
 	g.WriteString("return d.Error == nil\n")
 
 	g.Tabs--

@@ -111,6 +111,13 @@ func (g *Generator) WriteTabs() {
 	}
 }
 
+func (g *Generator) WithoutTabs() *Generator {
+	var newg Generator
+	newg = *g
+	newg.Tabs = 0
+	return &newg
+}
+
 func (g *Generator) Printf(format string, args ...interface{}) (int, error) {
 	g.WriteTabs()
 	return fmt.Fprintf(&g.Buffer, format, args...)
