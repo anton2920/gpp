@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"go/scanner"
 	"go/token"
 	"io"
 	"os"
@@ -13,19 +12,10 @@ import (
 	"github.com/anton2920/gofa/strings"
 )
 
-type ParsedFile struct {
-	Filename string
-	Imports  Imports
-	Specs    []TypeSpec
-}
-
 const GOFA = "github.com/anton2920/gofa/"
 
 var (
 	ReferencedPackages = make(map[string]struct{})
-	ParsedPackages     = make(map[string][]ParsedFile)
-	FileSet            = token.NewFileSet()
-	Sources            = make(map[int][]byte)
 )
 
 func ReadEntireFile(filename string) ([]byte, error) {
@@ -66,19 +56,17 @@ func Fatalf(format string, args ...interface{}) {
 	os.Exit(1)
 }
 
-func PopulateFileSet(paths []string) error {
-	var files []string
-
+func PopulateFileSet(fs *token.FileSet, paths []string) error {
 	for i := 0; i < len(paths); i++ {
 		path := paths[i]
 
-		st, err := os.Stat(path)
+		file, err := os.Stat(path)
 		if err != nil {
 			return fmt.Errorf("failed to stat %q: %v", path, err)
 		}
 
-		if !st.IsDir() {
-			files = append(files, path)
+		if !file.IsDir() {
+			fs.AddFile(path, fs.Base(), int(file.Size()))
 		} else {
 			dir, err := os.Open(path)
 			if err != nil {
@@ -86,44 +74,22 @@ func PopulateFileSet(paths []string) error {
 			}
 			defer dir.Close()
 
-			names, err := dir.Readdirnames(-1)
+			files, err := dir.Readdir(-1)
 			if err != nil {
 				return fmt.Errorf("failed to read names of directory %q entries: %v", path, err)
 			}
-			for j := 0; j < len(names); j++ {
-				name := names[j]
+			for j := 0; j < len(files); j++ {
+				file := files[j]
+				name := file.Name()
+
 				if (strings.EndsWith(name, ".go")) && (strings.FindSubstring(name, GeneratedSuffix) == -1) {
-					files = append(files, filepath.Join(path, name))
+					fs.AddFile(filepath.Join(path, name), fs.Base(), int(file.Size()))
 				}
 			}
 		}
 	}
 
-	for i := 0; i < len(files); i++ {
-		file := files[i]
-
-		src, err := ReadEntireFile(file)
-		if err != nil {
-			return fmt.Errorf("failed to read entire file %q: %v", file, err)
-		}
-
-		base := FileSet.Base()
-		FileSet.AddFile(file, base, len(src))
-		Sources[base] = src
-	}
-
 	return nil
-}
-
-func FindPackageName(is Imports, name string) string {
-	packageName := name
-	for _, i := range is {
-		if i.QualifiedName == packageName {
-			packageName = filepath.Base(i.Path)
-			break
-		}
-	}
-	return packageName
 }
 
 func FindPackagePath(is Imports, packageName string) string {
@@ -171,105 +137,38 @@ func main() {
 	flag.Usage = Usage
 	flag.Parse()
 
+	_ = listFiles
+
+	p := NewParser(token.NewFileSet())
+
 	paths := flag.Args()
 	if len(paths) == 0 {
 		paths = append(paths, ".")
 	}
-	if err := PopulateFileSet(paths); err != nil {
+	if err := PopulateFileSet(p.FileSet, paths); err != nil {
 		Fatalf("Failed to process arguments: %v", err)
 	}
 
-	processedPackages := make(map[string]struct{})
-	FileSet.Iterate(func(f *token.File) bool {
-		var comment *Comment
-		var parsedFile ParsedFile
-		var packageName string
-		var paths []string
-		var p Parser
+	p.FileSet.Iterate(func(f *token.File) bool {
+		var file File
 
-		parsedFile.Filename = f.Name()
-		p.FileSet = FileSet
-		p.Scanner.Init(f, Sources[f.Base()], nil, scanner.ScanComments)
-
-		done := false
-		for !done {
-			switch p.Curr().GoToken {
-			case token.PACKAGE:
-				if !p.Package(&packageName) {
-					Errorf("Failed to parse package: %v", p.Error)
-					return false
-				}
-			case token.IMPORT:
-				if !p.Imports(&parsedFile.Imports) {
-					Errorf("Failed to parse imports: %v", p.Error)
-					return false
-				}
-				continue
-			case token.COMMENT:
-				var c Comment
-				if p.GofaComment(&c) {
-					comment = &c
-					continue
-				}
-				p.Error = nil
-			case token.TYPE:
-				if p.Prev().GoToken != token.LPAREN {
-					var specs []TypeSpec
-					if !p.TypeDecl(&specs) {
-						Errorf("Failed to parse type declarations: %v", p.Error)
-						return false
-					}
-					if comment != nil {
-						for i := 0; i < len(specs); i++ {
-							spec := &specs[i]
-							spec.Comment = comment
-						}
-						comment = nil
-					}
-					parsedFile.Specs = append(parsedFile.Specs, specs...)
-					continue
-				}
-			case token.EOF:
-				done = true
-			}
-			comment = nil
-			p.Next()
-		}
-
-		for packageName := range processedPackages {
-			delete(ReferencedPackages, packageName)
-		}
-		for name := range ReferencedPackages {
-			packageName := FindPackageName(parsedFile.Imports, name)
-			if _, ok := processedPackages[packageName]; ok {
-				continue
-			}
-			paths = append(paths, ResolvePackagePath(FindPackagePath(parsedFile.Imports, packageName)))
-			processedPackages[packageName] = struct{}{}
-		}
-		if err := PopulateFileSet(paths); err != nil {
-			Errorf("Failed to process additional packages: %v", err)
+		p.File(f, &file)
+		if p.Error != nil {
+			Errorf("Failed to parse file %q: %v", f.Name(), p.Error)
 			return false
 		}
 
-		ParsedPackages[packageName] = append(ParsedPackages[packageName], parsedFile)
+		p.Packages[file.Package] = append(p.Packages[file.Package], file)
 		return true
 	})
 
-	for packageName, parsedFiles := range ParsedPackages {
-		for _, parsedFile := range parsedFiles {
-			var g Generator
-			g.Package = packageName
-			g.Imports = parsedFile.Imports
+	for _, files := range p.Packages {
+		for i := 0; i < len(files); i++ {
+			file := &files[i]
+			fileName := file.Name
 
-			if _, ok := processedPackages[packageName]; ok {
-				continue
-			}
-
-			filename := parsedFile.Filename
-			specs := parsedFile.Specs
-
-			for _, spec := range specs {
+			g := Generator{File: file}
+			for _, spec := range file.Specs {
 				if spec.Comment != nil {
 					for k := 0; k < len(spec.Comment.Encodings); k++ {
 						format := spec.Comment.Encodings[k]
@@ -280,7 +179,7 @@ func main() {
 			}
 
 			if g.ShouldDump() {
-				name := GeneratedName(filename)
+				name := GeneratedName(fileName)
 				file, err := os.Create(name)
 				if err != nil {
 					Errorf("Failed to create generated file %q: %v", name, err)
@@ -290,7 +189,7 @@ func main() {
 				file.Close()
 
 				if *listFiles {
-					fmt.Println(filename)
+					fmt.Println(fileName)
 				}
 			}
 		}

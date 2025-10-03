@@ -2,6 +2,7 @@ package main
 
 import (
 	"go/token"
+	"path/filepath"
 
 	"github.com/anton2920/gofa/strings"
 )
@@ -24,6 +25,16 @@ func (is Imports) Less(i int, j int) bool {
 	return is[i].Path < is[j].Path
 }
 func (is Imports) Swap(i int, j int) { is[i], is[j] = is[j], is[i] }
+
+func (is Imports) PackagePath(pkg string) string {
+	for _, i := range is {
+		if i.QualifiedName == pkg {
+			pkg = filepath.Base(i.Path)
+			break
+		}
+	}
+	return pkg
+}
 
 func (p *Parser) Import(i *Import) bool {
 	p.Ident(&i.QualifiedName)

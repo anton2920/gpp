@@ -7,52 +7,44 @@ import (
 	"github.com/anton2920/gofa/strings"
 )
 
-type EncodingJSON struct{}
+type EncodingJSON struct {
+	*Parser
 
-func FindLiteral(is Imports, name string, typeName string) TypeLit {
-	packageName := FindPackageName(is, name)
-	parsedFiles := ParsedPackages[packageName]
-	for _, parsedFile := range parsedFiles {
-		for _, spec := range parsedFile.Specs {
-			if typeName == spec.Name {
-				if spec.Type.Literal == nil {
-					FindLiteral(is, strings.Or(spec.Type.Package, packageName), spec.Type.Name)
-				}
-				return spec.Type.Literal
-			}
-		}
-	}
-	return nil
+	Index int
 }
 
-func (f *EncodingJSON) SerializeSlice(g *Generator, name string, s *Slice) {
-	letters := []byte{'i', 'j', 'k', 'l', 'm', 'n'}
-	letter := letters[g.Tabs-1]
+var Letters = []byte{'i', 'j', 'k', 'l', 'm', 'n'}
+
+func (json *EncodingJSON) SerializeSlice(g *Generator, name string, s *Slice) {
+	letter := Letters[json.Index]
+	json.Index++
 
 	g.WriteString("s.PutArrayBegin()\n")
 	g.Printf("for %c := 0; %c < len(%s); %c++ {\n", letter, letter, name, letter)
 	g.Tabs++
 	for {
 		if len(s.Element.Name) != 0 {
-			lit := FindLiteral(g.Imports, strings.Or(s.Element.Package, g.Package), s.Element.Name)
+			lit := json.FindTypeLit(g.Imports, strings.Or(s.Element.Package, g.Package), s.Element.Name)
 			if _, ok := lit.(*Struct); !ok {
-				f.SerializeTypeLit(g, fmt.Sprintf("%s(%s[%c])", lit, name, letter), lit)
+				json.SerializeTypeLit(g, fmt.Sprintf("%s(%s[%c])", lit, name, letter), lit)
 				break
 			}
 		}
-		f.SerializeType(g, fmt.Sprintf("%s[%c]", name, letter), &s.Element)
+		json.SerializeType(g, fmt.Sprintf("%s[%c]", name, letter), &s.Element)
 		break
 	}
 	g.Tabs--
 	g.WriteString("}\n")
 	g.WriteString("s.PutArrayEnd()\n")
+
+	json.Index--
 }
 
 func JSONPrivate(c byte) bool {
 	return (c == '_') || (unicode.IsLower(rune(c)))
 }
 
-func (f *EncodingJSON) SerializeStructFields(g *Generator, name string, fields []StructField) {
+func (json *EncodingJSON) SerializeStructFields(g *Generator, name string, fields []StructField) {
 	for _, field := range fields {
 		if field.Tag == `json:"-"` {
 			continue
@@ -69,7 +61,7 @@ func (f *EncodingJSON) SerializeStructFields(g *Generator, name string, fields [
 		}
 
 		if len(field.Type.Name) > 0 {
-			lit := FindLiteral(g.Imports, strings.Or(field.Type.Package, g.Package), field.Type.Name)
+			lit := json.FindTypeLit(g.Imports, strings.Or(field.Type.Package, g.Package), field.Type.Name)
 			if s, ok := lit.(*Struct); ok {
 				if len(field.Name) == 0 {
 					for i := 0; i < len(s.Fields); i++ {
@@ -78,42 +70,42 @@ func (f *EncodingJSON) SerializeStructFields(g *Generator, name string, fields [
 							f.Type.Package = field.Type.Package
 						}
 					}
-					f.SerializeStructFields(g, name+"."+field.Type.Name, s.Fields)
+					json.SerializeStructFields(g, name+"."+field.Type.Name, s.Fields)
 					continue
 				}
 			} else if lit != nil {
 				g.Printf("s.PutKey(`%s`)\n", field.Type.Name)
-				f.SerializeTypeLit(g, fmt.Sprintf("%s(%s.%s)", lit, name, strings.Or(field.Name, field.Type.Name)), lit)
+				json.SerializeTypeLit(g, fmt.Sprintf("%s(%s.%s)", lit, name, strings.Or(field.Name, field.Type.Name)), lit)
 				continue
 			}
 		}
 
 		g.Printf("s.PutKey(`%s`)\n", strings.Or(field.Name, field.Type.Name))
-		f.SerializeType(g, name+"."+strings.Or(field.Name, field.Type.Name), &field.Type)
+		json.SerializeType(g, name+"."+strings.Or(field.Name, field.Type.Name), &field.Type)
 	}
 }
 
-func (f *EncodingJSON) SerializeStruct(g *Generator, name string, s *Struct) {
+func (json *EncodingJSON) SerializeStruct(g *Generator, name string, s *Struct) {
 	g.WriteString("s.PutObjectBegin()\n")
-	f.SerializeStructFields(g, name, s.Fields)
+	json.SerializeStructFields(g, name, s.Fields)
 	g.WriteString("s.PutObjectEnd()\n")
 }
 
-func (f *EncodingJSON) SerializeTypeLit(g *Generator, name string, lit TypeLit) {
+func (json *EncodingJSON) SerializeTypeLit(g *Generator, name string, lit TypeLit) {
 	switch lit := lit.(type) {
 	case *Int, *Float, *String:
 		s := lit.String()
 		g.Printf("s.Put%c%s(%s)\n", unicode.ToUpper(rune(s[0])), s[1:], name)
 	case *Slice:
-		f.SerializeSlice(g, name, lit)
+		json.SerializeSlice(g, name, lit)
 	case *Struct:
-		f.SerializeStruct(g, name, lit)
+		json.SerializeStruct(g, name, lit)
 	}
 }
 
-func (f *EncodingJSON) SerializeType(g *Generator, name string, t *Type) {
+func (json *EncodingJSON) SerializeType(g *Generator, name string, t *Type) {
 	if t.Literal != nil {
-		f.SerializeTypeLit(g, name, t.Literal)
+		json.SerializeTypeLit(g, name, t.Literal)
 	} else {
 		tabs := g.Tabs
 
@@ -129,20 +121,20 @@ func (f *EncodingJSON) SerializeType(g *Generator, name string, t *Type) {
 	}
 }
 
-func (f *EncodingJSON) Serialize(g *Generator, ts *TypeSpec) {
+func (json *EncodingJSON) Serialize(g *Generator, ts *TypeSpec) {
 	g.AddImport(GOFA + "encoding/json")
 	name := VariableName(ts.Name, false)
 
 	g.Printf("\nfunc Put%sJSON(s *json.Serializer, %s *%s) {\n", ts.Name, name, ts.Name)
 	g.Tabs++
 
-	f.SerializeType(g, name, &ts.Type)
+	json.SerializeType(g, name, &ts.Type)
 
 	g.Tabs--
 	g.WriteString("}\n")
 }
 
-func (f *EncodingJSON) DeserializeSlice(g *Generator, name string, s *Slice) {
+func (json *EncodingJSON) DeserializeSlice(g *Generator, name string, s *Slice) {
 	var elementType string
 
 	letters := []byte{'i', 'j', 'k', 'l', 'm', 'n'}
@@ -165,13 +157,13 @@ func (f *EncodingJSON) DeserializeSlice(g *Generator, name string, s *Slice) {
 	g.Tabs++
 	for {
 		if len(s.Element.Name) > 0 {
-			lit := FindLiteral(g.Imports, strings.Or(s.Element.Package, g.Package), s.Element.Name)
+			lit := json.FindTypeLit(g.Imports, strings.Or(s.Element.Package, g.Package), s.Element.Name)
 			if _, ok := lit.(*Struct); !ok {
-				f.DeserializeTypeLit(g, fmt.Sprintf("(*%s)(unsafe.Pointer(&%s[%c]))", lit, name, letter), lit, true)
+				json.DeserializeTypeLit(g, fmt.Sprintf("(*%s)(unsafe.Pointer(&%s[%c]))", lit, name, letter), lit, true)
 				break
 			}
 		}
-		f.DeserializeType(g, fmt.Sprintf("%s[%c]", name, letter), &s.Element)
+		json.DeserializeType(g, fmt.Sprintf("%s[%c]", name, letter), &s.Element)
 		break
 	}
 	g.Tabs--
@@ -179,7 +171,7 @@ func (f *EncodingJSON) DeserializeSlice(g *Generator, name string, s *Slice) {
 	g.WriteString("d.GetSliceEnd()\n")
 }
 
-func (f *EncodingJSON) DeserializeStructFields(g *Generator, name string, fields []StructField) {
+func (json *EncodingJSON) DeserializeStructFields(g *Generator, name string, fields []StructField) {
 	for _, field := range fields {
 		if field.Tag == `json:"-"` {
 			continue
@@ -196,7 +188,7 @@ func (f *EncodingJSON) DeserializeStructFields(g *Generator, name string, fields
 		}
 
 		if len(field.Type.Name) > 0 {
-			lit := FindLiteral(g.Imports, strings.Or(field.Type.Package, g.Package), field.Type.Name)
+			lit := json.FindTypeLit(g.Imports, strings.Or(field.Type.Package, g.Package), field.Type.Name)
 			if s, ok := lit.(*Struct); ok {
 				if len(field.Name) == 0 {
 					for i := 0; i < len(s.Fields); i++ {
@@ -205,13 +197,13 @@ func (f *EncodingJSON) DeserializeStructFields(g *Generator, name string, fields
 							f.Type.Package = field.Type.Package
 						}
 					}
-					f.DeserializeStructFields(g, name+"."+field.Type.Name, s.Fields)
+					json.DeserializeStructFields(g, name+"."+field.Type.Name, s.Fields)
 					continue
 				}
 			} else if lit != nil {
 				g.Printf("case \"%s\":\n", field.Type.Name)
 				g.Tabs++
-				f.DeserializeTypeLit(g, fmt.Sprintf("(*%s)(unsafe.Pointer(&%s.%s))", lit, name, strings.Or(field.Name, field.Type.Name)), lit, true)
+				json.DeserializeTypeLit(g, fmt.Sprintf("(*%s)(unsafe.Pointer(&%s.%s))", lit, name, strings.Or(field.Name, field.Type.Name)), lit, true)
 				g.Tabs--
 				continue
 			}
@@ -219,18 +211,18 @@ func (f *EncodingJSON) DeserializeStructFields(g *Generator, name string, fields
 
 		g.Printf("case \"%s\":\n", strings.Or(field.Name, field.Type.Name))
 		g.Tabs++
-		f.DeserializeType(g, name+"."+strings.Or(field.Name, field.Type.Name), &field.Type)
+		json.DeserializeType(g, name+"."+strings.Or(field.Name, field.Type.Name), &field.Type)
 		g.Tabs--
 	}
 }
 
-func (f *EncodingJSON) DeserializeStruct(g *Generator, name string, s *Struct) {
+func (json *EncodingJSON) DeserializeStruct(g *Generator, name string, s *Struct) {
 	g.WriteString("d.GetObjectBegin()\n")
 	g.WriteString("for d.GetKey(&key) {\n")
 	g.Tabs++
 	{
 		g.WriteString("switch key {\n")
-		f.DeserializeStructFields(g, name, s.Fields)
+		json.DeserializeStructFields(g, name, s.Fields)
 		g.WriteString("}\n")
 	}
 	g.Tabs--
@@ -238,7 +230,7 @@ func (f *EncodingJSON) DeserializeStruct(g *Generator, name string, s *Struct) {
 	g.WriteString("d.GetObjectEnd()\n")
 }
 
-func (f *EncodingJSON) DeserializeTypeLit(g *Generator, name string, lit TypeLit, alreadyPointer bool) {
+func (json *EncodingJSON) DeserializeTypeLit(g *Generator, name string, lit TypeLit, alreadyPointer bool) {
 	var amp string
 	if !alreadyPointer {
 		amp = "&"
@@ -249,15 +241,15 @@ func (f *EncodingJSON) DeserializeTypeLit(g *Generator, name string, lit TypeLit
 		s := lit.String()
 		g.Printf("d.Get%c%s(%s%s)\n", unicode.ToUpper(rune(s[0])), s[1:], amp, name)
 	case *Slice:
-		f.DeserializeSlice(g, name, lit)
+		json.DeserializeSlice(g, name, lit)
 	case *Struct:
-		f.DeserializeStruct(g, name, lit)
+		json.DeserializeStruct(g, name, lit)
 	}
 }
 
-func (f *EncodingJSON) DeserializeType(g *Generator, name string, t *Type) {
+func (json *EncodingJSON) DeserializeType(g *Generator, name string, t *Type) {
 	if t.Literal != nil {
-		f.DeserializeTypeLit(g, name, t.Literal, false)
+		json.DeserializeTypeLit(g, name, t.Literal, false)
 	} else {
 		tabs := g.Tabs
 
@@ -273,7 +265,7 @@ func (f *EncodingJSON) DeserializeType(g *Generator, name string, t *Type) {
 	}
 }
 
-func (f *EncodingJSON) Deserialize(g *Generator, ts *TypeSpec) {
+func (json *EncodingJSON) Deserialize(g *Generator, ts *TypeSpec) {
 	g.AddImport("unsafe")
 	g.AddImport(GOFA + "encoding/json")
 	name := VariableName(ts.Name, false)
@@ -282,7 +274,7 @@ func (f *EncodingJSON) Deserialize(g *Generator, ts *TypeSpec) {
 	g.Tabs++
 
 	g.WriteString("var key string\n\n")
-	f.DeserializeType(g, name, &ts.Type)
+	json.DeserializeType(g, name, &ts.Type)
 	g.WithoutTabs().WriteRune('\n')
 	g.WriteString("return d.Error == nil\n")
 

@@ -29,7 +29,7 @@ func (p *Parser) GofaComment(comment *Comment) bool {
 
 		switch {
 		case strings.StartsWith(s, "json"):
-			comment.Encodings = append(comment.Encodings, &EncodingJSON{})
+			comment.Encodings = append(comment.Encodings, &EncodingJSON{Parser: p})
 		}
 
 		lit = rest

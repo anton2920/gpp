@@ -13,11 +13,11 @@ import (
 )
 
 type Generator struct {
+	*File
+
 	Buffer bytes.Buffer
 	Tabs   int
 
-	Package   string
-	Imports   Imports
 	DoImports Imports
 }
 

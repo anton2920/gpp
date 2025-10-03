@@ -4,12 +4,25 @@ import (
 	"fmt"
 	"go/token"
 	"strconv"
+
+	"github.com/anton2920/gofa/strings"
 )
 
 type Parser struct {
 	Lexer
 
+	Packages map[string][]File
+
 	Error error
+}
+
+func NewParser(fs *token.FileSet) Parser {
+	var p Parser
+
+	p.FileSet = fs
+	p.Packages = make(map[string][]File)
+
+	return p
 }
 
 func (p *Parser) Token(expectedTok token.Token) bool {
@@ -79,4 +92,22 @@ func (p *Parser) StringLit(s *string) bool {
 		return true
 	}
 	return false
+}
+
+func (p *Parser) FindTypeLit(is Imports, pkg string, typeName string) TypeLit {
+	pkgPath := is.PackagePath(pkg)
+
+	parsedFiles := p.Packages[pkgPath]
+	for _, parsedFile := range parsedFiles {
+		for _, spec := range parsedFile.Specs {
+			if typeName == spec.Name {
+				if spec.Type.Literal == nil {
+					p.FindTypeLit(is, strings.Or(spec.Type.Package, pkgPath), spec.Type.Name)
+				}
+				return spec.Type.Literal
+			}
+		}
+	}
+
+	return nil
 }

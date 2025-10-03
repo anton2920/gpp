@@ -268,10 +268,9 @@ func (p *Parser) Struct(s *Struct) bool {
 func (p *Parser) TypeLit(tl *TypeLit) bool {
 	pos := p.Position
 
-	tok := p.Curr()
-	switch tok.GoToken {
+	switch p.Curr().GoToken {
 	case token.IDENT:
-		switch tok.Literal {
+		switch p.Curr().Literal {
 		case "int", "uint", "int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64":
 			i := new(Int)
 			if p.Int(i) {
