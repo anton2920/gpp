@@ -8,7 +8,7 @@ import (
 )
 
 type Comment struct {
-	Formats []Format
+	Encodings []Encoding
 }
 
 func ParseGofaComment(l *lexer.Lexer, comment *Comment) bool {
@@ -30,7 +30,7 @@ func ParseGofaComment(l *lexer.Lexer, comment *Comment) bool {
 
 		switch {
 		case strings.StartsWith(s, "json"):
-			comment.Formats = append(comment.Formats, &FormatJSON{})
+			comment.Encodings = append(comment.Encodings, &EncodingJSON{})
 		}
 
 		lit = rest

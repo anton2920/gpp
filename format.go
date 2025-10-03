@@ -5,7 +5,7 @@ import (
 	"unicode"
 )
 
-type Format interface {
+type Encoding interface {
 	Serialize(*Generator, *TypeSpec)
 	Deserialize(*Generator, *TypeSpec)
 }

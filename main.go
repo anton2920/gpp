@@ -272,8 +272,8 @@ func main() {
 
 			for _, spec := range specs {
 				if spec.Comment != nil {
-					for k := 0; k < len(spec.Comment.Formats); k++ {
-						format := spec.Comment.Formats[k]
+					for k := 0; k < len(spec.Comment.Encodings); k++ {
+						format := spec.Comment.Encodings[k]
 						format.Serialize(&g, &spec)
 						format.Deserialize(&g, &spec)
 					}
@@ -296,5 +296,4 @@ func main() {
 			}
 		}
 	}
-
 }
