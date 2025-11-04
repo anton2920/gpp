@@ -121,11 +121,7 @@ func (r *Result) WithoutTabs() *Result {
 func (r *Result) Printf(format string, args ...interface{}) {
 	r.DoTabs()
 	fmt.Fprintf(&r.Buffer, format, args...)
-}
-
-func (r *Result) Printfln(format string, args ...interface{}) {
-	r.DoTabs()
-	r.WithoutTabs().Rune('\n')
+	r.Buffer.WriteRune('\n')
 }
 
 func (r *Result) Bytes(b []byte) {
@@ -135,7 +131,7 @@ func (r *Result) Bytes(b []byte) {
 
 func (r *Result) Line(l string) {
 	r.String(l)
-	r.WithoutTabs().Rune('\n')
+	r.Buffer.WriteRune('\n')
 }
 
 func (r *Result) Rune(c rune) {

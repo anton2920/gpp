@@ -40,7 +40,7 @@ func (p *Parser) File(f *token.File, file *File) bool {
 				return false
 			}
 			continue
-		case token.COMMENT, token.TYPE:
+		case token.TYPE:
 			/* If not type assertion (i.e. variable.(type)). */
 			if p.Prev().GoToken != token.LPAREN {
 				var specs []TypeSpec

@@ -134,8 +134,11 @@ func (p *Parser) TypeSpec(ts *TypeSpec) bool {
 func (p *Parser) TypeDecl(tss *[]TypeSpec) bool {
 	/* Comment before 'type': apply to all type specs. */
 	var c Comment
-	p.Comment(&c)
-	p.Error = nil
+	p.Position--
+	if !p.Comment(&c) {
+		p.Error = nil
+		p.Next()
+	}
 
 	if p.Token(token.TYPE) {
 		if p.Token(token.LPAREN) {

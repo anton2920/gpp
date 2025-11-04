@@ -4,7 +4,7 @@ import "github.com/anton2920/gofa/database"
 
 //gpp:generate: encoding(json)
 type User struct {
-	database.RecordHeader
+	RecordHeader database.RecordHeader
 
 	FirstName string
 	LastName  string

@@ -85,7 +85,7 @@ func (p *Parser) Comment(comment *Comment) bool {
 
 								switch s {
 								case "json":
-									gc.Generators = append(gc.Generators, GeneratorJSON{})
+									gc.Generators = append(gc.Generators, GeneratorJSON{p})
 								case "wire":
 									gc.Generators = append(gc.Generators, GeneratorWire{})
 								}

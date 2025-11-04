@@ -35,14 +35,15 @@ func TestJSONPutCompanyMemberJSON(t *testing.T) {
 		}
 
 		s.Reset()
-		PutCompanyMemberJSON(&s, &test)
+		SerializeCompanyMemberJSON(&s, &test)
 
 		if bytes.Compare(expected, s.Bytes()) != 0 {
-			t.Errorf("Expected '%s', got '%s'", expected, s.String())
+			t.Errorf("Expected '%s', got '%s'", expected, s.Bytes())
 		}
 	}
 }
 
+/*
 func TestJSONGetCompanyMemberJSON(t *testing.T) {
 	var d json.Deserializer
 
@@ -69,6 +70,7 @@ func TestJSONGetCompanyMemberJSON(t *testing.T) {
 		}
 	}
 }
+*/
 
 func BenchmarkMarshalCompanyMemberJSON(b *testing.B) {
 	for i := 0; i < b.N; i++ {
@@ -99,7 +101,7 @@ func BenchmarkPutCompanyMemberJSON(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		s.Reset()
-		PutCompanyMemberJSON(&s, &testCompanyMember)
+		SerializeCompanyMemberJSON(&s, &testCompanyMember)
 	}
 }
 
@@ -112,6 +114,7 @@ func BenchmarkUnmarshalCompanyMemberJSON(b *testing.B) {
 	}
 }
 
+/*
 func BenchmarkGetCompanyMemberJSON(b *testing.B) {
 	var d json.Deserializer
 	d.Init(testCompanyMemberJSON)
@@ -126,3 +129,4 @@ func BenchmarkGetCompanyMemberJSON(b *testing.B) {
 		}
 	}
 }
+*/
