@@ -167,25 +167,26 @@ func main() {
 			file := &files[i]
 			fileName := file.Name
 
-			g := Generator{File: file}
+			r := Result{File: file}
 			for _, spec := range file.Specs {
 				if spec.Comment != nil {
-					for k := 0; k < len(spec.Comment.Encodings); k++ {
-						format := spec.Comment.Encodings[k]
-						format.Serialize(&g, &spec)
-						format.Deserialize(&g, &spec)
+					switch c := spec.Comment.(type) {
+					case GenerateComment:
+						for _, g := range c.Generators {
+							g.Generate(&r, &spec)
+						}
 					}
 				}
 			}
 
-			if g.ShouldDump() {
+			if r.ShouldDump() {
 				name := GeneratedName(fileName)
 				file, err := os.Create(name)
 				if err != nil {
 					Errorf("Failed to create generated file %q: %v", name, err)
 					continue
 				}
-				g.Dump(file)
+				r.Dump(file)
 				file.Close()
 
 				if *listFiles {

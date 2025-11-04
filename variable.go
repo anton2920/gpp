@@ -5,11 +5,6 @@ import (
 	"unicode"
 )
 
-type Encoding interface {
-	Serialize(*Generator, *TypeSpec)
-	Deserialize(*Generator, *TypeSpec)
-}
-
 /* NOTE(anton2920): this supports only ASCII. */
 func VariableName(typeName string, array bool) string {
 	var lastUpper int

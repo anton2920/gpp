@@ -18,7 +18,7 @@ type TypeParam struct {
 }
 
 type TypeSpec struct {
-	*Comment
+	Comment
 
 	Name   string
 	Params []TypeParam
@@ -132,6 +132,11 @@ func (p *Parser) TypeSpec(ts *TypeSpec) bool {
 }
 
 func (p *Parser) TypeDecl(tss *[]TypeSpec) bool {
+	/* Comment before 'type': apply to all type specs. */
+	var c Comment
+	p.Comment(&c)
+	p.Error = nil
+
 	if p.Token(token.TYPE) {
 		if p.Token(token.LPAREN) {
 			for p.Curr().GoToken != token.RPAREN {
@@ -142,6 +147,9 @@ func (p *Parser) TypeDecl(tss *[]TypeSpec) bool {
 				if !p.Token(token.SEMICOLON) {
 					return false
 				}
+				if ts.Comment == nil {
+					ts.Comment = c
+				}
 				*tss = append(*tss, ts)
 			}
 			return true
@@ -150,6 +158,9 @@ func (p *Parser) TypeDecl(tss *[]TypeSpec) bool {
 
 		var ts TypeSpec
 		if p.TypeSpec(&ts) {
+			if ts.Comment == nil {
+				ts.Comment = c
+			}
 			*tss = append(*tss, ts)
 			return true
 		}

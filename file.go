@@ -15,8 +15,6 @@ type File struct {
 }
 
 func (p *Parser) File(f *token.File, file *File) bool {
-	var comment *Comment
-
 	src, err := ReadEntireFile(f.Name())
 	if err != nil {
 		p.Error = fmt.Errorf("failed to read file %q: %v", f.Name(), err)
@@ -42,26 +40,13 @@ func (p *Parser) File(f *token.File, file *File) bool {
 				return false
 			}
 			continue
-		case token.COMMENT:
-			var c Comment
-			if p.GofaComment(&c) {
-				comment = &c
-				continue
-			}
-			p.Error = nil
-		case token.TYPE:
+		case token.COMMENT, token.TYPE:
+			/* If not type assertion (i.e. variable.(type)). */
 			if p.Prev().GoToken != token.LPAREN {
 				var specs []TypeSpec
 				if !p.TypeDecl(&specs) {
 					p.Error = fmt.Errorf("failed to parse type declarations: %v", p.Error)
 					return false
-				}
-				if comment != nil {
-					for i := 0; i < len(specs); i++ {
-						spec := &specs[i]
-						spec.Comment = comment
-					}
-					comment = nil
 				}
 				file.Specs = append(file.Specs, specs...)
 				continue
@@ -69,7 +54,6 @@ func (p *Parser) File(f *token.File, file *File) bool {
 		case token.EOF:
 			done = true
 		}
-		comment = nil
 		p.Next()
 	}
 

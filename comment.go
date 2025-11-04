@@ -1,40 +1,111 @@
 package main
 
 import (
+	"fmt"
 	"go/token"
 
+	"github.com/anton2920/gofa/net/url"
 	"github.com/anton2920/gofa/strings"
 )
 
-type Comment struct {
-	Encodings []Encoding
+type Comment interface{}
+
+type GenerateComment struct {
+	Generators []Generator
 }
 
-func (p *Parser) GofaComment(comment *Comment) bool {
-	const prefix = "//gpp:generate"
+type NOPComment struct{}
 
-	tok := p.Curr()
-	if (p.Error != nil) || (tok.GoToken != token.COMMENT) || (!strings.StartsWith(tok.Literal, prefix)) {
-		return false
-	}
-	lit := tok.Literal[len(prefix):]
+type InlineComment struct{}
 
-	done := false
-	for !done {
-		s, rest, ok := strings.Cut(lit, ",")
-		if !ok {
-			done = true
+type VerifyComment struct {
+	Min       int
+	Max       int
+	MinLength int
+	MaxLength int
+}
+
+func (p *Parser) Comment(comment *Comment) bool {
+	const prefix = "gpp:"
+
+	if p.Token(token.COMMENT) {
+		tok := p.Prev()
+		if !strings.StartsWith(tok.Literal[2:], prefix) {
+			p.Error = fmt.Errorf("expected prefix %q, got %q", prefix, tok.Literal)
+			return false
 		}
-		s = strings.TrimSpace(s)
+		lit := tok.Literal[2+len(prefix):]
 
+		fn := url.Path(lit)
 		switch {
-		case strings.StartsWith(s, "json"):
-			comment.Encodings = append(comment.Encodings, &EncodingJSON{Parser: p})
+		case fn.Match("nop"):
+			*comment = NOPComment{}
+			return true
+		case fn.Match("inline"):
+			*comment = InlineComment{}
+			return true
+		case fn.Match("generate..."):
+			var gc GenerateComment
+
+			switch {
+			case fn == "":
+				gc.Generators = append(gc.Generators, GeneratorsAll()...)
+			case fn.Match(":..."):
+				var done bool
+
+				lit := string(fn)
+				for !done {
+					s, rest, ok := strings.Cut(lit, ",")
+					if !ok {
+						done = true
+					}
+					s = strings.TrimSpace(s)
+
+					gen := url.Path(s)
+					switch {
+					case gen.Match("fill"):
+						gc.Generators = append(gc.Generators, GeneratorFill{})
+					case gen.Match("verify"):
+						gc.Generators = append(gc.Generators, GeneratorVerify{})
+					case gen.Match("encoding..."):
+						var list string
+						switch {
+						case gen == "":
+							gc.Generators = append(gc.Generators, GeneratorsEncodingAll()...)
+						case gen.Match("(%s)", &list):
+							var done bool
+
+							lit := string(list)
+							for !done {
+								s, rest, ok := strings.Cut(lit, ",")
+								if !ok {
+									done = true
+								}
+								s = strings.TrimSpace(s)
+
+								switch s {
+								case "json":
+									gc.Generators = append(gc.Generators, GeneratorJSON{})
+								case "wire":
+									gc.Generators = append(gc.Generators, GeneratorWire{})
+								}
+
+								lit = rest
+							}
+						}
+					}
+
+					lit = rest
+				}
+			}
+
+			*comment = gc
+			return true
+		case strings.StartsWith(lit, "verify:"):
+			var vc VerifyComment
+			*comment = vc
+			return true
 		}
-
-		lit = rest
 	}
-
-	p.Next()
-	return true
+	return false
 }
