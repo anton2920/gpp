@@ -12,7 +12,9 @@ type Encoding struct {
 	*Parser
 }
 
-func JSONPrivate(c byte) bool {
+type KeysSet map[string]struct{}
+
+func Private(c byte) bool {
 	return (c == '_') || (unicode.IsLower(rune(c)))
 }
 
@@ -131,7 +133,7 @@ func (e *Encoding) DeserializeTypeLit(r *Result, name string, lit TypeLit, cast 
 
 func (e *Encoding) SerializeStruct(r *Result, name string, s *Struct) {
 	r.Line("s.ObjectBegin()")
-	e.SerializeStructFields(r, name, s.Fields)
+	e.SerializeStructFields(r, name, s.Fields, nil)
 	r.Line("s.ObjectEnd()")
 }
 
@@ -141,7 +143,7 @@ func (e *Encoding) DeserializeStruct(r *Result, name string, s *Struct) {
 	r.Tabs++
 	{
 		r.Line("switch key {")
-		e.DeserializeStructFields(r, name, s.Fields)
+		e.DeserializeStructFields(r, name, s.Fields, nil)
 		r.Line("}")
 	}
 	r.Tabs--
@@ -149,18 +151,37 @@ func (e *Encoding) DeserializeStruct(r *Result, name string, s *Struct) {
 	r.Line("d.ObjectEnd()")
 }
 
-func (e *Encoding) SerializeStructFields(r *Result, name string, fields []StructField) {
+func (e *Encoding) SerializeStructFields(r *Result, name string, fields []StructField, forbiddenKeys KeysSet) {
+	keys := make(KeysSet)
+
 	for _, field := range fields {
 		if field.Tag == `json:"-"` {
 			continue
 		}
 		if len(field.Name) == 0 {
 			/* struct { myType } */
-			if (len(field.Type.Name) > 0) && (JSONPrivate(field.Type.Name[0])) {
+			if (len(field.Type.Name) > 0) && (Private(field.Type.Name[0])) {
 				continue
 			}
 			/* struct { int } */
-			if (field.Type.Literal != nil) && (JSONPrivate(field.Type.Literal.String()[0])) {
+			if (field.Type.Literal != nil) && (Private(field.Type.Literal.String()[0])) {
+				continue
+			}
+		}
+		keys[strings.Or(field.Name, field.Type.Name)] = struct{}{}
+	}
+
+	for _, field := range fields {
+		if field.Tag == `json:"-"` {
+			continue
+		}
+		if len(field.Name) == 0 {
+			/* struct { myType } */
+			if (len(field.Type.Name) > 0) && (Private(field.Type.Name[0])) {
+				continue
+			}
+			/* struct { int } */
+			if (field.Type.Literal != nil) && (Private(field.Type.Literal.String()[0])) {
 				continue
 			}
 		}
@@ -175,33 +196,58 @@ func (e *Encoding) SerializeStructFields(r *Result, name string, fields []Struct
 							f.Type.Package = field.Type.Package
 						}
 					}
-					e.SerializeStructFields(r, name+"."+field.Type.Name, s.Fields)
+					e.SerializeStructFields(r, fmt.Sprintf("%s.%s", name, field.Type.Name), s.Fields, keys)
 					continue
 				}
 			} else if lit != nil {
-				r.Printf("s.Key(`%s`)", field.Type.Name)
-				e.SerializeTypeLit(r, fmt.Sprintf("%s.%s", name, strings.Or(field.Name, field.Type.Name)), lit, true, false)
+				key := field.Type.Name
+				if _, ok := forbiddenKeys[key]; !ok {
+					r.Printf("s.Key(`%s`)", key)
+					e.SerializeTypeLit(r, fmt.Sprintf("%s.%s", name, strings.Or(field.Name, key)), lit, true, false)
+				}
 				continue
 			}
 		}
 
-		r.Printf("s.Key(`%s`)", strings.Or(field.Name, field.Type.Name))
-		e.SerializeType(r, fmt.Sprintf("%s.%s", name, strings.Or(field.Name, field.Type.Name)), &field.Type, false)
+		key := strings.Or(field.Name, field.Type.Name)
+		if _, ok := forbiddenKeys[key]; !ok {
+			r.Printf("s.Key(`%s`)", key)
+			e.SerializeType(r, fmt.Sprintf("%s.%s", name, key), &field.Type, false)
+		}
 	}
 }
 
-func (e *Encoding) DeserializeStructFields(r *Result, name string, fields []StructField) {
+func (e *Encoding) DeserializeStructFields(r *Result, name string, fields []StructField, forbiddenKeys KeysSet) {
+	keys := make(KeysSet)
+
 	for _, field := range fields {
 		if field.Tag == `json:"-"` {
 			continue
 		}
 		if len(field.Name) == 0 {
 			/* struct { myType } */
-			if (len(field.Type.Name) > 0) && (JSONPrivate(field.Type.Name[0])) {
+			if (len(field.Type.Name) > 0) && (Private(field.Type.Name[0])) {
 				continue
 			}
 			/* struct { int } */
-			if (field.Type.Literal != nil) && (JSONPrivate(field.Type.Literal.String()[0])) {
+			if (field.Type.Literal != nil) && (Private(field.Type.Literal.String()[0])) {
+				continue
+			}
+		}
+		keys[strings.Or(field.Name, field.Type.Name)] = struct{}{}
+	}
+
+	for _, field := range fields {
+		if field.Tag == `json:"-"` {
+			continue
+		}
+		if len(field.Name) == 0 {
+			/* struct { myType } */
+			if (len(field.Type.Name) > 0) && (Private(field.Type.Name[0])) {
+				continue
+			}
+			/* struct { int } */
+			if (field.Type.Literal != nil) && (Private(field.Type.Literal.String()[0])) {
 				continue
 			}
 		}
@@ -216,22 +262,28 @@ func (e *Encoding) DeserializeStructFields(r *Result, name string, fields []Stru
 							f.Type.Package = field.Type.Package
 						}
 					}
-					e.DeserializeStructFields(r, name+"."+field.Type.Name, s.Fields)
+					e.DeserializeStructFields(r, fmt.Sprintf("%s.%s", name, field.Type.Name), s.Fields, keys)
 					continue
 				}
 			} else if lit != nil {
-				r.Printf("case \"%s\":", field.Type.Name)
-				r.Tabs++
-				e.DeserializeTypeLit(r, fmt.Sprintf("%s.%s", name, strings.Or(field.Name, field.Type.Name)), lit, true, false)
-				r.Tabs--
+				key := field.Type.Name
+				if _, ok := forbiddenKeys[key]; !ok {
+					r.Printf("case \"%s\":")
+					r.Tabs++
+					e.DeserializeTypeLit(r, fmt.Sprintf("%s.%s", name, strings.Or(field.Name, key)), lit, true, false)
+					r.Tabs--
+				}
 				continue
 			}
 		}
 
-		r.Printf("case \"%s\":", strings.Or(field.Name, field.Type.Name))
-		r.Tabs++
-		e.DeserializeType(r, fmt.Sprintf("%s.%s", name, strings.Or(field.Name, field.Type.Name)), &field.Type, false)
-		r.Tabs--
+		key := strings.Or(field.Name, field.Type.Name)
+		if _, ok := forbiddenKeys[key]; !ok {
+			r.Printf("case \"%s\":", key)
+			r.Tabs++
+			e.DeserializeType(r, fmt.Sprintf("%s.%s", name, key), &field.Type, false)
+			r.Tabs--
+		}
 	}
 }
 

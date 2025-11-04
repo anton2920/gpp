@@ -7,7 +7,9 @@ type CompanyMember struct {
 	RecordHeader database.RecordHeader
 
 	// Company
-	User User
+	User
 
 	RoleIDs []database.ID
+
+	CreatedAt int64
 }

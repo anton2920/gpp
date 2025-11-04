@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	testCompanyMember     = CompanyMember{RecordHeader: database.RecordHeader{ID: 123, Flags: 456}, User: User{RecordHeader: database.RecordHeader{ID: 789, Flags: 12}, FirstName: "FirstName", LastName: "LastName", Email: "member@example.com", Password: "qwerty", CreatedOn: time.Now().Unix()}, RoleIDs: []database.ID{1, 2, 3, 4, 8}}
+	testCompanyMember     = CompanyMember{RecordHeader: database.RecordHeader{ID: 123, Flags: 456}, User: User{RecordHeader: database.RecordHeader{ID: 789, Flags: 12}, FirstName: "FirstName", LastName: "LastName", Email: "member@example.com", Password: "qwerty", CreatedAt: time.Now().Unix()}, RoleIDs: []database.ID{1, 2, 3, 4, 8}}
 	testCompanyMemberJSON = []byte(`{"ID":123,"Flags":456,"User":{"ID":789,"Flags":12,"FirstName":"FirstName","LastName":"LastName","Email":"member@example.com","CreatedOn":1753724928},"RoleIDs":[1,2,3,4,8]}`)
 )
 

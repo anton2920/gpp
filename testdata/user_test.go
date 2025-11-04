@@ -12,8 +12,8 @@ import (
 )
 
 var (
-	testUser     = User{FirstName: "FirstName", LastName: "LastName", Email: "user@example.com", Password: "qwerty", CreatedOn: time.Now().Unix()}
-	testUserJSON = []byte(`{"ID":0,"Flags":0,"FirstName":"FirstName","LastName":"LastName","Email":"user@example.com","CreatedOn":1753717395}`)
+	testUser     = User{FirstName: "FirstName", LastName: "LastName", Email: "user@example.com", Password: "qwerty", CreatedAt: time.Now().Unix()}
+	testUserJSON = []byte(`{"ID":0,"Flags":0,"FirstName":"FirstName","LastName":"LastName","Email":"user@example.com","CreatedAt":1753717395}`)
 )
 
 func testUserCompare(self *User, other *User) bool {
@@ -27,7 +27,7 @@ func TestPutUserJSON(t *testing.T) {
 	now := time.Now().Unix()
 	tests := [...]User{
 		testUser,
-		{FirstName: `Quote"quote`, LastName: "LastName", Email: "user@example.com", Password: "qwerty", CreatedOn: now},
+		{FirstName: `Quote"quote`, LastName: "LastName", Email: "user@example.com", Password: "qwerty", CreatedAt: now},
 	}
 
 	for _, test := range tests {
