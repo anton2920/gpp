@@ -49,6 +49,8 @@ type Slice struct {
 type String struct{}
 
 type StructField struct {
+	Comment
+
 	Name string
 	Type Type
 	Tag  string
@@ -208,19 +210,28 @@ func (p *Parser) String(s *String) bool {
 }
 
 func (p *Parser) StructFields(fs *[]StructField) bool {
-	pos := p.Position
+	var comment Comment
+	p.Comment(&comment)
+	p.Error = nil
 
 	/* Option 1: IdentList Type. */
+	pos := p.Position
 	var idents []string
 	if p.IdentList(&idents) {
 		var t Type
 		if p.Type(&t) {
 			var tag string
-			p.StringLit(&tag)
-			p.Error = nil
+			if p.Curr().GoToken == token.STRING {
+				p.StringLit(&tag)
+			}
+
+			if comment == nil {
+				p.Comment(&comment)
+				p.Error = nil
+			}
 
 			for i := 0; i < len(idents); i++ {
-				*fs = append(*fs, StructField{Name: idents[i], Type: t, Tag: tag})
+				*fs = append(*fs, StructField{Comment: comment, Name: idents[i], Type: t, Tag: tag})
 			}
 
 			p.Token(token.SEMICOLON)
@@ -236,10 +247,16 @@ func (p *Parser) StructFields(fs *[]StructField) bool {
 	var t Type
 	if p.Type(&t) {
 		var tag string
-		p.StringLit(&tag)
-		p.Error = nil
+		if p.Curr().GoToken == token.STRING {
+			p.StringLit(&tag)
+		}
 
-		*fs = append(*fs, StructField{Type: t, Tag: tag})
+		if comment == nil {
+			p.Comment(&comment)
+			p.Error = nil
+		}
+
+		*fs = append(*fs, StructField{Comment: comment, Type: t, Tag: tag})
 
 		p.Token(token.SEMICOLON)
 		p.Error = nil
@@ -252,7 +269,7 @@ func (p *Parser) StructFields(fs *[]StructField) bool {
 func (p *Parser) Struct(s *Struct) bool {
 	if p.Token(token.STRUCT) {
 		if p.Token(token.LBRACE) {
-			for !p.Token(token.RBRACE) {
+			for p.Curr().GoToken != token.RBRACE {
 				p.Error = nil
 				if !p.StructFields(&s.Fields) {
 					return false

@@ -23,6 +23,14 @@ func IsStruct(lit TypeLit) bool {
 	return ok
 }
 
+func LiteralName(lit TypeLit) string {
+	var name string
+	if lit != nil {
+		name = lit.String()
+	}
+	return name
+}
+
 func (e *Encoding) Serialize(r *Result, ts *TypeSpec, serializerName string) {
 	r.AddImport(GOFA + "encoding/json")
 	name := VariableName(ts.Name, false)
@@ -30,7 +38,7 @@ func (e *Encoding) Serialize(r *Result, ts *TypeSpec, serializerName string) {
 	r.Printf("\nfunc Serialize%s%s(s *%s.Serializer, %s *%s) {", ts.Name, serializerName, stdstrings.ToLower(serializerName), name, ts.Name)
 	r.Tabs++
 
-	e.SerializeType(r, name, &ts.Type, true)
+	e.SerializeType(r, name, &ts.Type, ts.Name != LiteralName(ts.Type.Literal), true)
 
 	r.Tabs--
 	r.Line("}")
@@ -43,7 +51,7 @@ func (e *Encoding) Deserialize(r *Result, ts *TypeSpec, deserializerName string)
 	r.Printf("\nfunc Deserialize%s%s(d *%s.Deserializer, %s *%s) bool {", ts.Name, deserializerName, stdstrings.ToLower(deserializerName), name, ts.Name)
 	r.Tabs++
 
-	e.DeserializeType(r, name, &ts.Type, true)
+	e.DeserializeType(r, name, &ts.Type, ts.Name != LiteralName(ts.Type.Literal), true)
 	r.WithoutTabs().Rune('\n')
 	r.Line("return d.Error == nil")
 
@@ -51,9 +59,9 @@ func (e *Encoding) Deserialize(r *Result, ts *TypeSpec, deserializerName string)
 	r.Line("}")
 }
 
-func (e *Encoding) SerializeType(r *Result, name string, t *Type, alreadyPointer bool) {
+func (e *Encoding) SerializeType(r *Result, name string, t *Type, cast bool, alreadyPointer bool) {
 	if t.Literal != nil {
-		e.SerializeTypeLit(r, name, t.Literal, t.Name != t.Literal.String(), alreadyPointer)
+		e.SerializeTypeLit(r, name, t.Literal, cast, alreadyPointer)
 	} else {
 		tabs := r.Tabs
 
@@ -69,9 +77,9 @@ func (e *Encoding) SerializeType(r *Result, name string, t *Type, alreadyPointer
 	}
 }
 
-func (e *Encoding) DeserializeType(r *Result, name string, t *Type, alreadyPointer bool) {
+func (e *Encoding) DeserializeType(r *Result, name string, t *Type, cast bool, alreadyPointer bool) {
 	if t.Literal != nil {
-		e.DeserializeTypeLit(r, name, t.Literal, t.Name != t.Literal.String(), alreadyPointer)
+		e.DeserializeTypeLit(r, name, t.Literal, cast, alreadyPointer)
 	} else {
 		tabs := r.Tabs
 
@@ -212,7 +220,7 @@ func (e *Encoding) SerializeStructFields(r *Result, name string, fields []Struct
 		key := strings.Or(field.Name, field.Type.Name)
 		if _, ok := forbiddenKeys[key]; !ok {
 			r.Printf("s.Key(`%s`)", key)
-			e.SerializeType(r, fmt.Sprintf("%s.%s", name, key), &field.Type, false)
+			e.SerializeType(r, fmt.Sprintf("%s.%s", name, key), &field.Type, false, false)
 		}
 	}
 }
@@ -281,7 +289,7 @@ func (e *Encoding) DeserializeStructFields(r *Result, name string, fields []Stru
 		if _, ok := forbiddenKeys[key]; !ok {
 			r.Printf("case \"%s\":", key)
 			r.Tabs++
-			e.DeserializeType(r, fmt.Sprintf("%s.%s", name, key), &field.Type, false)
+			e.DeserializeType(r, fmt.Sprintf("%s.%s", name, key), &field.Type, false, false)
 			r.Tabs--
 		}
 	}
@@ -303,7 +311,7 @@ func (e *Encoding) SerializeSlice(r *Result, name string, s *Slice) {
 				}
 			}
 		}
-		e.SerializeType(r, element, &s.Element, false)
+		e.SerializeType(r, element, &s.Element, false, false)
 		break
 	}
 	r.Tabs--
@@ -341,7 +349,7 @@ func (e *Encoding) DeserializeSlice(r *Result, name string, s *Slice) {
 				}
 			}
 		}
-		e.DeserializeType(r, element, &s.Element, false)
+		e.DeserializeType(r, element, &s.Element, false, false)
 		r.Printf("%s = append(%s, element)", name, name)
 		break
 	}

@@ -66,16 +66,18 @@ func (p *Parser) Type(t *Type) bool {
 			ReferencedPackages[t.Package] = struct{}{}
 
 			if p.Ident(&t.Name) {
-				p.TypeArgs(&t.Args)
-				p.Error = nil
+				if p.Curr().GoToken == token.LBRACK {
+					p.TypeArgs(&t.Args)
+				}
 				return true
 			}
 		}
 		p.Error = nil
 		t.Name = ident
 
-		p.TypeArgs(&t.Args)
-		p.Error = nil
+		if p.Curr().GoToken == token.LBRACK {
+			p.TypeArgs(&t.Args)
+		}
 		return true
 	}
 
@@ -115,6 +117,10 @@ func (p *Parser) TypeParams(tparams *[]TypeParam) bool {
 }
 
 func (p *Parser) TypeSpec(ts *TypeSpec) bool {
+	var comment Comment
+	p.Comment(&comment)
+	p.Error = nil
+
 	if p.Ident(&ts.Name) {
 		p.TypeParams(&ts.Params)
 		p.Error = nil
@@ -125,6 +131,7 @@ func (p *Parser) TypeSpec(ts *TypeSpec) bool {
 		p.Error = nil
 
 		if p.Type(&ts.Type) {
+			ts.Comment = comment
 			return true
 		}
 	}
@@ -133,9 +140,10 @@ func (p *Parser) TypeSpec(ts *TypeSpec) bool {
 
 func (p *Parser) TypeDecl(tss *[]TypeSpec) bool {
 	/* Comment before 'type': apply to all type specs. */
-	var c Comment
+	/* NOTE(anton2920): because this function is called when 'p.Curr()' is 'token.TYPE', we need to backtrack to check for possible comment. */
 	p.Position--
-	if !p.Comment(&c) {
+	var comment Comment
+	if !p.Comment(&comment) {
 		p.Error = nil
 		p.Next()
 	}
@@ -151,7 +159,7 @@ func (p *Parser) TypeDecl(tss *[]TypeSpec) bool {
 					return false
 				}
 				if ts.Comment == nil {
-					ts.Comment = c
+					ts.Comment = comment
 				}
 				*tss = append(*tss, ts)
 			}
@@ -162,7 +170,7 @@ func (p *Parser) TypeDecl(tss *[]TypeSpec) bool {
 		var ts TypeSpec
 		if p.TypeSpec(&ts) {
 			if ts.Comment == nil {
-				ts.Comment = c
+				ts.Comment = comment
 			}
 			*tss = append(*tss, ts)
 			return true

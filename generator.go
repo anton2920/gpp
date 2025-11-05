@@ -1,9 +1,9 @@
 package main
 
 type Generator interface {
-	Generate(*Result, *TypeSpec)
+	Generate(*Result, *Parser, *TypeSpec)
 }
 
 func GeneratorsAll() []Generator {
-	return append([]Generator{GeneratorFill{}, GeneratorVerify{}}, GeneratorsEncodingAll()...)
+	return append(append(GeneratorsFillAll(), GeneratorVerify{}), GeneratorsEncodingAll()...)
 }

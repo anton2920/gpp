@@ -170,10 +170,11 @@ func main() {
 			r := Result{File: file}
 			for _, spec := range file.Specs {
 				if spec.Comment != nil {
-					switch c := spec.Comment.(type) {
+					switch comment := spec.Comment.(type) {
 					case GenerateComment:
-						for _, g := range c.Generators {
-							g.Generate(&r, &spec)
+						for j := 0; j < len(comment.Generators); j++ {
+							g := comment.Generators[j]
+							g.Generate(&r, &p, &spec)
 						}
 					}
 				}

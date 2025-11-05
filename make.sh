@@ -22,7 +22,7 @@ printv()
 }
 
 # Switch to Go 1.4.
-. go14-env
+#. go14-env
 
 # NOTE(anton2920): don't like Google spying on me.
 GOPROXY=direct; export GOPROXY
@@ -39,7 +39,7 @@ STARTTIME=`date +%s`
 case $1 in
 	'' | debug)
 		CGO_ENABLED=1; export CGO_ENABLED
-		run go build $VERBOSITYFLAGS -o $PROJECT -race -gcflags="-N -l" -tags gofadebug
+		run go build $VERBOSITYFLAGS -o $PROJECT -race -gcflags="all=-N -l" -tags gofadebug
 		;;
 	clean)
 		run rm -f $PROJECT $PROJECT.s $PROJECT.esc $PROJECT.test c.out cpu.pprof mem.pprof
