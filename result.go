@@ -71,7 +71,9 @@ func (r *Result) Dump(w io.Writer) (int64, error) {
 
 			if len(r.DoImports) > 1 {
 				if (!newline) && (strings.FindChar(imp.Path, '/') != -1) {
-					buf.WriteRune('\n')
+					if i > 0 {
+						buf.WriteRune('\n')
+					}
 					newline = true
 				}
 				buf.WriteRune('\t')

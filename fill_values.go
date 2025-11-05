@@ -10,6 +10,7 @@ import (
 type GeneratorFillValues struct{}
 
 func (g GeneratorFillValues) Generate(r *Result, p *Parser, ts *TypeSpec) {
+	r.AddImport(GOFA + "net/url")
 	name := VariableName(ts.Name, false)
 
 	r.Printf("\nfunc Fill%sFromValues(vs url.Values, %s *%s) {", ts.Name, name, ts.Name)
