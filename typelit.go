@@ -49,11 +49,10 @@ type Slice struct {
 type String struct{}
 
 type StructField struct {
-	Comment
-
-	Name string
-	Type Type
-	Tag  string
+	Comments []Comment
+	Name     string
+	Type     Type
+	Tag      string
 }
 
 type Struct struct {
@@ -69,6 +68,19 @@ var (
 	_ = TypeLit(new(String))
 	_ = TypeLit(new(Struct))
 )
+
+func IsStruct(lit TypeLit) bool {
+	_, ok := lit.(*Struct)
+	return ok
+}
+
+func LiteralName(lit TypeLit) string {
+	var name string
+	if lit != nil {
+		name = lit.String()
+	}
+	return name
+}
 
 func (a *Array) String() string {
 	return fmt.Sprintf("[%d]%s", a.Size, a.Element.String())
@@ -210,8 +222,8 @@ func (p *Parser) String(s *String) bool {
 }
 
 func (p *Parser) StructFields(fs *[]StructField) bool {
-	var comment Comment
-	p.Comment(&comment)
+	var comments []Comment
+	p.Comments(&comments)
 	p.Error = nil
 
 	/* Option 1: IdentList Type. */
@@ -221,17 +233,16 @@ func (p *Parser) StructFields(fs *[]StructField) bool {
 		var t Type
 		if p.Type(&t) {
 			var tag string
-			if p.Curr().GoToken == token.STRING {
-				p.StringLit(&tag)
-			}
+			p.StringLit(&tag)
+			p.Error = nil
 
-			if comment == nil {
-				p.Comment(&comment)
+			if comments == nil {
+				p.Comments(&comments)
 				p.Error = nil
 			}
 
 			for i := 0; i < len(idents); i++ {
-				*fs = append(*fs, StructField{Comment: comment, Name: idents[i], Type: t, Tag: tag})
+				*fs = append(*fs, StructField{Comments: comments, Name: idents[i], Type: t, Tag: tag})
 			}
 
 			p.Token(token.SEMICOLON)
@@ -247,16 +258,15 @@ func (p *Parser) StructFields(fs *[]StructField) bool {
 	var t Type
 	if p.Type(&t) {
 		var tag string
-		if p.Curr().GoToken == token.STRING {
-			p.StringLit(&tag)
-		}
+		p.StringLit(&tag)
+		p.Error = nil
 
-		if comment == nil {
-			p.Comment(&comment)
+		if comments == nil {
+			p.Comments(&comments)
 			p.Error = nil
 		}
 
-		*fs = append(*fs, StructField{Comment: comment, Type: t, Tag: tag})
+		*fs = append(*fs, StructField{Comments: comments, Type: t, Tag: tag})
 
 		p.Token(token.SEMICOLON)
 		p.Error = nil

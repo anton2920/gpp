@@ -14,23 +14,6 @@ type Encoding struct {
 
 type KeysSet map[string]struct{}
 
-func Private(c byte) bool {
-	return (c == '_') || (unicode.IsLower(rune(c)))
-}
-
-func IsStruct(lit TypeLit) bool {
-	_, ok := lit.(*Struct)
-	return ok
-}
-
-func LiteralName(lit TypeLit) string {
-	var name string
-	if lit != nil {
-		name = lit.String()
-	}
-	return name
-}
-
 func (e *Encoding) Serialize(r *Result, ts *TypeSpec, serializerName string) {
 	r.AddImport(GOFA + "encoding/json")
 	name := VariableName(ts.Name, false)
@@ -276,7 +259,7 @@ func (e *Encoding) DeserializeStructFields(r *Result, name string, fields []Stru
 			} else if lit != nil {
 				key := field.Type.Name
 				if _, ok := forbiddenKeys[key]; !ok {
-					r.Printf("case \"%s\":")
+					r.Printf("case \"%s\":", key)
 					r.Tabs++
 					e.DeserializeTypeLit(r, fmt.Sprintf("%s.%s", name, strings.Or(field.Name, key)), lit, true, false)
 					r.Tabs--

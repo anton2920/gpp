@@ -19,6 +19,7 @@ type Result struct {
 	Tabs   int
 
 	DoImports Imports
+	Constants []Constant
 }
 
 const GeneratedSuffix = "_gpp"
@@ -45,6 +46,14 @@ func (r *Result) AddImport(s string) {
 		}
 	}
 	r.DoImports = append(r.DoImports, insert)
+}
+
+func (r *Result) AddConstant(name string, value string) Constant {
+	constant := Constant{Name: name, Value: value}
+	if len(constant.Value) > 0 {
+		r.Constants = append(r.Constants, constant)
+	}
+	return constant
 }
 
 func (r *Result) Dump(w io.Writer) (int64, error) {
@@ -86,6 +95,30 @@ func (r *Result) Dump(w io.Writer) (int64, error) {
 		if len(r.DoImports) > 1 {
 			buf.WriteString(")\n")
 		}
+	}
+
+	if len(r.Constants) > 0 {
+		maxLen := len(r.Constants[0].Name)
+		for i := 1; i < len(r.Constants); i++ {
+			constant := &r.Constants[i]
+			if len(constant.Name) > maxLen {
+				maxLen = len(constant.Name)
+			}
+		}
+
+		buf.WriteString("\nconst (\n")
+		for i := 0; i < len(r.Constants); i++ {
+			constant := &r.Constants[i]
+			buf.WriteRune('\t')
+			buf.WriteString(constant.Name)
+			for j := 0; j < maxLen-len(constant.Name); j++ {
+				buf.WriteRune(' ')
+			}
+			buf.WriteString(" = ")
+			buf.WriteString(constant.Value)
+			buf.WriteRune('\n')
+		}
+		buf.WriteString(")\n")
 	}
 
 	n, err := io.Copy(w, bytes.NewReader(buf.Bytes()))

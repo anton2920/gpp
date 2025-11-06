@@ -18,12 +18,11 @@ type TypeParam struct {
 }
 
 type TypeSpec struct {
-	Comment
-
-	Name   string
-	Params []TypeParam
-	Type   Type
-	Alias  bool
+	Comments []Comment
+	Name     string
+	Params   []TypeParam
+	Type     Type
+	Alias    bool
 }
 
 func (t *Type) String() string {
@@ -117,8 +116,8 @@ func (p *Parser) TypeParams(tparams *[]TypeParam) bool {
 }
 
 func (p *Parser) TypeSpec(ts *TypeSpec) bool {
-	var comment Comment
-	p.Comment(&comment)
+	var comments []Comment
+	p.Comments(&comments)
 	p.Error = nil
 
 	if p.Ident(&ts.Name) {
@@ -131,7 +130,7 @@ func (p *Parser) TypeSpec(ts *TypeSpec) bool {
 		p.Error = nil
 
 		if p.Type(&ts.Type) {
-			ts.Comment = comment
+			ts.Comments = comments
 			return true
 		}
 	}
@@ -139,14 +138,9 @@ func (p *Parser) TypeSpec(ts *TypeSpec) bool {
 }
 
 func (p *Parser) TypeDecl(tss *[]TypeSpec) bool {
-	/* Comment before 'type': apply to all type specs. */
-	/* NOTE(anton2920): because this function is called when 'p.Curr()' is 'token.TYPE', we need to backtrack to check for possible comment. */
-	p.Position--
-	var comment Comment
-	if !p.Comment(&comment) {
-		p.Error = nil
-		p.Next()
-	}
+	var comments []Comment
+	p.Comments(&comments)
+	p.Error = nil
 
 	if p.Token(token.TYPE) {
 		if p.Token(token.LPAREN) {
@@ -158,8 +152,8 @@ func (p *Parser) TypeDecl(tss *[]TypeSpec) bool {
 				if !p.Token(token.SEMICOLON) {
 					return false
 				}
-				if ts.Comment == nil {
-					ts.Comment = comment
+				if ts.Comments == nil {
+					ts.Comments = comments
 				}
 				*tss = append(*tss, ts)
 			}
@@ -169,8 +163,8 @@ func (p *Parser) TypeDecl(tss *[]TypeSpec) bool {
 
 		var ts TypeSpec
 		if p.TypeSpec(&ts) {
-			if ts.Comment == nil {
-				ts.Comment = comment
+			if ts.Comments == nil {
+				ts.Comments = comments
 			}
 			*tss = append(*tss, ts)
 			return true
