@@ -2,14 +2,18 @@ package main
 
 import "github.com/anton2920/gofa/database"
 
-//gpp:generate: encoding(json)
+//gpp:generate: fill, encoding(json)
 type CompanyMember struct {
-	RecordHeader database.RecordHeader
+	database.RecordHeader //gpp:fill: nop
 
 	// Company
-	User
+	User //gpp:fill: nop
+	
+	FirstName string
+	LastName  string
+	Position  string
 
-	RoleIDs []database.ID
+	RoleIDs []database.ID //gpp:fill: nop
 
-	CreatedAt int64
+	CreatedAt int64 //gpp:fill: nop
 }

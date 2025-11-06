@@ -51,6 +51,10 @@ func (g GeneratorFillValues) GenerateType(r *Result, p *Parser, key string, name
 }
 
 func (g GeneratorFillValues) GenerateTypeLit(r *Result, p *Parser, key string, name string, lit TypeLit, castName string, alreadyPointer bool, fc FillComment) {
+	if fc.NOP {
+		return
+	}
+
 	var star string
 	if alreadyPointer {
 		star = "*"
@@ -114,12 +118,14 @@ func (g GeneratorFillValues) GenerateStructFields(r *Result, p *Parser, name str
 							f.Type.Package = field.Type.Package
 						}
 					}
-					g.GenerateStructFields(r, p, fieldName, s.Fields)
+					if !comment.NOP {
+						g.GenerateStructFields(r, p, fieldName, s.Fields)
+					}
 					continue
 				}
 			} else if lit != nil {
 				g.GenerateTypeLit(r, p, key, fieldName, lit, field.Type.Name, false, comment)
-				fmt.Printf("For field %q: comment %#v\n", fieldName, comment)
+				// fmt.Printf("For field %q: comment %#v\n", fieldName, comment)
 				continue
 			}
 		}
