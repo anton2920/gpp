@@ -24,8 +24,8 @@ type Generator interface {
 	//ArrayElementEnd()
 
 	Slice(*Result, *Parser, *Slice, string, string, []Comment)
-	SliceElementBegin()
-	SliceElementEnd()
+	//SliceElementBegin()
+	//SliceElementEnd()
 
 	Struct(*Result, *Parser, *Struct, string, string, []Comment)
 	StructFieldBegin(*Result, *Parser, string, string, string, []Comment)
@@ -87,25 +87,18 @@ func GenerateTypeLit(g Generator, r *Result, p *Parser, lit TypeLit, specName st
 }
 
 func GenerateSliceElement(g Generator, r *Result, p *Parser, elem *Type, specName string, varName string, comments []Comment) {
-	r.Printf("for _, element := range %s", varName)
-	r.Tabs++
-	for {
-		if len(elem.Name) > 0 {
-			lit := p.FindTypeLit(r.Imports, strings.Or(elem.Package, r.Package), elem.Name)
-			if (lit != nil) && (!IsStruct(lit)) {
-				g.SliceElementBegin()
-				GenerateTypeLit(g, r, p, lit, specName, lit.String(), varName, comments, false)
-				g.SliceElementEnd()
-				break
-			}
+	if len(elem.Name) > 0 {
+		lit := p.FindTypeLit(r.Imports, strings.Or(elem.Package, r.Package), elem.Name)
+		if (lit != nil) && (!IsStruct(lit)) {
+			//g.SliceElementBegin()
+			GenerateTypeLit(g, r, p, lit, specName, lit.String(), varName, comments, false)
+			//g.SliceElementEnd()
+			return
 		}
-		g.SliceElementBegin()
-		GenerateType(g, r, p, elem, specName, varName, comments, false)
-		g.SliceElementEnd()
-		break
 	}
-	r.Tabs--
-	r.Line("}")
+	//g.SliceElementBegin()
+	GenerateType(g, r, p, elem, specName, varName, comments, false)
+	//g.SliceElementEnd()
 }
 
 func SkipField(g Generator, field *StructField) bool {

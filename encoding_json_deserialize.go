@@ -80,10 +80,16 @@ func (g GeneratorEncodingJSONDeserialize) StructFieldEnd(r *Result, p *Parser, f
 }
 
 func (g GeneratorEncodingJSONDeserialize) Slice(r *Result, p *Parser, s *Slice, specName string, varName string, _ []Comment) {
-	r.Line("s.ArrayBegin()")
-	GenerateSliceElement(g, r, p, &s.Element, specName, varName, nil)
-	r.Line("s.ArrayEnd()")
+	r.Line("d.ArrayBegin()")
+	r.Line("for d.Next() {")
+	r.Tabs++
+	{
+		const element = "element"
+		r.Printf("var %s %s", element, s.Element.String())
+		GenerateSliceElement(g, r, p, &s.Element, specName, "element", nil)
+		r.Printf("%s = append(%s, %s)", varName, varName, element)
+	}
+	r.Tabs--
+	r.Line("}")
+	r.Line("d.ArrayEnd()")
 }
-
-func (g GeneratorEncodingJSONDeserialize) SliceElementBegin() {}
-func (g GeneratorEncodingJSONDeserialize) SliceElementEnd()   {}

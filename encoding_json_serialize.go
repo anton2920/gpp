@@ -70,7 +70,13 @@ func (g GeneratorEncodingJSONSerialize) StructFieldEnd(r *Result, p *Parser, fie
 
 func (g GeneratorEncodingJSONSerialize) Slice(r *Result, p *Parser, s *Slice, specName string, varName string, _ []Comment) {
 	r.Line("s.ArrayBegin()")
-	GenerateSliceElement(g, r, p, &s.Element, specName, varName, nil)
+	r.Printf("for _, element := range %s {", varName)
+	r.Tabs++
+	{
+		GenerateSliceElement(g, r, p, &s.Element, specName, varName, nil)
+	}
+	r.Tabs--
+	r.Line("}")
 	r.Line("s.ArrayEnd()")
 }
 
