@@ -37,14 +37,14 @@ func (g GeneratorEncodingJSONDeserialize) NamedType(r *Result, p *Parser, t *Typ
 	r.Tabs = tabs
 }
 
-func (g GeneratorEncodingJSONDeserialize) Primitive(r *Result, p *Parser, lit TypeLit, specName string, castName string, varName string, _ []Comment, pointer bool) {
+func (g GeneratorEncodingJSONDeserialize) Primitive(r *Result, p *Parser, lit TypeLit, specName string, _ string, castName string, varName string, _ []Comment, pointer bool) {
 	var amp string
 	if !pointer {
 		amp = "&"
 	}
 
 	litName := lit.String()
-	if (len(castName) == 0) || (castName == litName) {
+	if len(castName) == 0 {
 		r.Printf("d.%c%s(%s%s)", unicode.ToUpper(rune(litName[0])), litName[1:], amp, varName)
 	} else {
 		r.AddImport("unsafe")
@@ -52,41 +52,46 @@ func (g GeneratorEncodingJSONDeserialize) Primitive(r *Result, p *Parser, lit Ty
 	}
 }
 
-func (g GeneratorEncodingJSONDeserialize) Struct(r *Result, p *Parser, s *Struct, specName string, varName string, _ []Comment) {
+func (g GeneratorEncodingJSONDeserialize) Struct(r *Result, p *Parser, s *Struct, specName string, varName string) {
 	r.Line("var key string")
 	r.Line("d.ObjectBegin()")
 	r.Line("for d.Key(&key) {")
 	r.Tabs++
 	{
 		r.Line("switch key {")
-		GenerateStructFields(g, r, p, s.Fields, specName, varName, nil, nil)
+		GenerateStructFields(g, r, p, s.Fields, specName, varName, nil)
 		r.Line("}")
 	}
 	r.Tabs--
+	r.Line("}")
 	r.Line("d.ObjectEnd()")
 }
 
-func (g GeneratorEncodingJSONDeserialize) StructFieldBegin(r *Result, p *Parser, fieldName string, specName string, varName string, _ []Comment) {
+func (g GeneratorEncodingJSONDeserialize) StructField(r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName string, varName string) {
+	if field.Tag == `json:"-"` {
+		return
+	}
+
 	r.Printf("case \"%s\":", fieldName)
 	r.Tabs++
-}
 
-func (g GeneratorEncodingJSONDeserialize) SkipField(field *StructField) bool {
-	return field.Tag == `json:"-"`
-}
+	if lit != nil {
+		GenerateTypeLit(g, r, p, lit, specName, fieldName, lit.String(), varName, field.Comments, false)
+	} else {
+		GenerateType(g, r, p, &field.Type, specName, varName, field.Comments, false)
+	}
 
-func (g GeneratorEncodingJSONDeserialize) StructFieldEnd(r *Result, p *Parser, fieldName string, specName string, varName string, _ []Comment) {
 	r.Tabs--
 }
 
-func (g GeneratorEncodingJSONDeserialize) Slice(r *Result, p *Parser, s *Slice, specName string, varName string, _ []Comment) {
+func (g GeneratorEncodingJSONDeserialize) Slice(r *Result, p *Parser, s *Slice, specName string, varName string, comments []Comment) {
 	r.Line("d.ArrayBegin()")
 	r.Line("for d.Next() {")
 	r.Tabs++
 	{
 		const element = "element"
 		r.Printf("var %s %s", element, s.Element.String())
-		GenerateSliceElement(g, r, p, &s.Element, specName, "element", nil)
+		GenerateSliceElement(g, r, p, &s.Element, specName, "element", comments)
 		r.Printf("%s = append(%s, %s)", varName, varName, element)
 	}
 	r.Tabs--

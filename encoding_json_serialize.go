@@ -37,48 +37,47 @@ func (g GeneratorEncodingJSONSerialize) NamedType(r *Result, p *Parser, t *Type,
 	r.Tabs = tabs
 }
 
-func (g GeneratorEncodingJSONSerialize) Primitive(r *Result, p *Parser, lit TypeLit, specName string, castName string, varName string, _ []Comment, pointer bool) {
+func (g GeneratorEncodingJSONSerialize) Primitive(r *Result, p *Parser, lit TypeLit, specName string, _ string, castName string, varName string, _ []Comment, pointer bool) {
 	var star string
 	if pointer {
 		star = "*"
 	}
 
 	litName := lit.String()
-	if (len(castName) == 0) || (castName == litName) {
+	if len(castName) == 0 {
 		r.Printf("s.%c%s(%s%s)", unicode.ToUpper(rune(litName[0])), litName[1:], star, varName)
 	} else {
 		r.Printf("s.%c%s(%s(%s%s))", unicode.ToUpper(rune(litName[0])), litName[1:], castName, star, varName)
 	}
 }
 
-func (g GeneratorEncodingJSONSerialize) Struct(r *Result, p *Parser, s *Struct, specName string, varName string, _ []Comment) {
+func (g GeneratorEncodingJSONSerialize) Struct(r *Result, p *Parser, s *Struct, specName string, varName string) {
 	r.Line("s.ObjectBegin()")
-	GenerateStructFields(g, r, p, s.Fields, specName, varName, nil, nil)
+	GenerateStructFields(g, r, p, s.Fields, specName, varName, nil)
 	r.Line("s.ObjectEnd()")
 }
 
-func (g GeneratorEncodingJSONSerialize) StructFieldBegin(r *Result, p *Parser, fieldName string, specName string, varName string, _ []Comment) {
+func (g GeneratorEncodingJSONSerialize) StructField(r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName, varName string) {
+	if field.Tag == `json:"-"` {
+		return
+	}
+
 	r.Printf("s.Key(`%s`)", fieldName)
+	if lit != nil {
+		GenerateTypeLit(g, r, p, lit, specName, fieldName, lit.String(), varName, field.Comments, false)
+	} else {
+		GenerateType(g, r, p, &field.Type, specName, varName, field.Comments, false)
+	}
 }
 
-func (g GeneratorEncodingJSONSerialize) SkipField(field *StructField) bool {
-	return field.Tag == `json:"-"`
-}
-
-func (g GeneratorEncodingJSONSerialize) StructFieldEnd(r *Result, p *Parser, fieldName string, specName string, varName string, _ []Comment) {
-}
-
-func (g GeneratorEncodingJSONSerialize) Slice(r *Result, p *Parser, s *Slice, specName string, varName string, _ []Comment) {
+func (g GeneratorEncodingJSONSerialize) Slice(r *Result, p *Parser, s *Slice, specName string, varName string, comments []Comment) {
 	r.Line("s.ArrayBegin()")
 	r.Printf("for _, element := range %s {", varName)
 	r.Tabs++
 	{
-		GenerateSliceElement(g, r, p, &s.Element, specName, varName, nil)
+		GenerateSliceElement(g, r, p, &s.Element, specName, varName, comments)
 	}
 	r.Tabs--
 	r.Line("}")
 	r.Line("s.ArrayEnd()")
 }
-
-func (g GeneratorEncodingJSONSerialize) SliceElementBegin() {}
-func (g GeneratorEncodingJSONSerialize) SliceElementEnd()   {}

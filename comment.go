@@ -91,7 +91,7 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 							var list string
 							switch {
 							case gen == "":
-								// gc.Generators = append(gc.Generators, GeneratorsFillAll()...)
+								gc.Generators = append(gc.Generators, GeneratorsFillAll()...)
 							case gen.Match("(%s)", &list):
 								var done bool
 
@@ -105,7 +105,7 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 
 									switch s {
 									case "values":
-										// gc.Generators = append(gc.Generators, GeneratorFillValues{})
+										gc.Generators = append(gc.Generators, GeneratorFillValues{})
 									}
 
 									lit = rest
