@@ -35,7 +35,6 @@ func (e *Encoding) Deserialize(r *Result, ts *TypeSpec, deserializerName string)
 	r.Tabs++
 
 	e.DeserializeType(r, name, &ts.Type, ts.Name != LiteralName(ts.Type.Literal), true)
-	r.WithoutTabs().Rune('\n')
 	r.Line("return d.Error == nil")
 
 	r.Tabs--

@@ -146,13 +146,6 @@ func (r *Result) DoTabs() {
 	}
 }
 
-func (r *Result) WithoutTabs() *Result {
-	var newr Result
-	newr = *r
-	newr.Tabs = 0
-	return &newr
-}
-
 func (r *Result) Printf(format string, args ...interface{}) {
 	r.DoTabs()
 	fmt.Fprintf(&r.Buffer, format, args...)
