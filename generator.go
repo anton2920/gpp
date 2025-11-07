@@ -1,43 +1,40 @@
 package main
 
-import "unicode"
+import (
+	"fmt"
+	"unicode"
+
+	"github.com/anton2920/gofa/strings"
+)
+
+type KeySet map[string]struct{}
 
 type Generator interface {
-	Generate(*Result, *Parser, *TypeSpec)
-}
+	NOP([]Comment) bool
 
-func GeneratorsAll() []Generator {
-	return append(append(GeneratorsFillAll(), GeneratorVerify{}), GeneratorsEncodingAll()...)
+	Imports() []string
+	Func(string, string) string
+	Return() string
+
+	NamedType(*Result, *Parser, *Type, string, string, []Comment, bool)
+	Primitive(*Result, *Parser, TypeLit, string, string, string, []Comment, bool)
+
+	//Array(*Result, *Parser, *Array, string, string, []Comment, bool)
+	//ArrayElementBegin()
+	//ArrayElementEnd()
+
+	Slice(*Result, *Parser, *Slice, string, string, []Comment)
+	SliceElementBegin()
+	SliceElementEnd()
+
+	Struct(*Result, *Parser, *Struct, string, string, []Comment)
+	StructFieldBegin(*Result, *Parser, string, string, string, []Comment)
+	SkipField(*StructField) bool
+	StructFieldEnd(*Result, *Parser, string, string, string, []Comment)
 }
 
 func Private(c byte) bool {
 	return (c == '_') || (unicode.IsLower(rune(c)))
-}
-
-/*
-type KeySet map[string]struct{}
-
-type Generator interface {
-	Func() string
-	NOP([]Comment) bool
-
-	Type(*Result, *Parser, *Type, string, string, []Comment, bool)
-
-	Int(*Result, *Parser, *Int, string, string, []Comment, bool)
-	Float(*Result, *Parser, *Float, string, string, []Comment, bool)
-	String(*Result, *Parser, *String, string, string, []Comment, bool)
-
-	Array(*Result, *Parser, *Array, string, string, []Comment, bool)
-	ArrayElementBegin()
-	ArrayElementEnd()
-
-	Slice(*Result, *Parser, *Slice, string, string, []Comment, bool)
-	SliceElementBegin()
-	SliceElementEnd()
-
-	Struct(*Result, *Parser, *Struct, string, string, []Comment, bool)
-	StructFieldBegin()
-	StructFieldEnd()
 }
 
 func Generate(g Generator, r *Result, p *Parser, ts *TypeSpec) {
@@ -47,7 +44,11 @@ func Generate(g Generator, r *Result, p *Parser, ts *TypeSpec) {
 	r.Printf("\nfunc %s {", g.Func(ts.Name, varName))
 	r.Tabs++
 
-	GenerateType(g, r, p, ts.Name, varName, &ts.Type, ts.Comments, true)
+	GenerateType(g, r, p, &ts.Type, ts.Name, varName, ts.Comments, true)
+
+	if ret := g.Return(); len(ret) > 0 {
+		r.Printf("return %s", ret)
+	}
 
 	r.Tabs--
 	r.Line("}")
@@ -59,47 +60,65 @@ func GenerateType(g Generator, r *Result, p *Parser, t *Type, specName string, v
 	}
 
 	if t.Literal != nil {
-		GenerateLiteral(g, r, p, specName, varName, t.Literal, comments, varPointer)
+		GenerateTypeLit(g, r, p, t.Literal, specName, "", varName, comments, varPointer)
 	} else {
 		if len(t.Package) > 0 {
 			r.AddImport(t.Package)
 		}
-		g.Type(r, p, specName, varName, t, comments, varPointer)
+		g.NamedType(r, p, t, specName, varName, comments, varPointer)
 	}
 }
 
-func GenerateTypeLit(g Generator, r *Result, p *Parser, lit TypeLit, specName string, varName string, comments []Comment, varPointer bool) {
+func GenerateTypeLit(g Generator, r *Result, p *Parser, lit TypeLit, specName string, castName string, varName string, comments []Comment, varPointer bool) {
 	if g.NOP(comments) {
 		return
 	}
 
 	switch lit := lit.(type) {
-	case *Int:
-		g.Int(r, p, lit, specName, varName, comments, varPointer)
-	case *Float:
-		g.Float(r, p, lit, specName, varName, comments, varPointer)
-	case *String:
-		g.String(r, p, lit, specName, varName, comments, varPointer)
-	case *Array:
-		g.Array(r, p, lit, specName, varName, comments, varPointer)
+	case *Int, *Float, *String:
+		g.Primitive(r, p, lit, specName, castName, varName, comments, varPointer)
+	//case *Array:
+	//	g.Array(r, p, lit, specName, varName, comments)
 	case *Slice:
-		g.Slice(r, p, lit, specName, varName, comments, varPointer)
+		g.Slice(r, p, lit, specName, varName, comments)
 	case *Struct:
-		g.Struct(r, p, lit, specName, varName, comments, varPointer)
+		g.Struct(r, p, lit, specName, varName, comments)
 	}
 }
 
-func SkipField(g Generator, field *Field) bool {
+func GenerateSliceElement(g Generator, r *Result, p *Parser, elem *Type, specName string, varName string, comments []Comment) {
+	r.Printf("for _, element := range %s", varName)
+	r.Tabs++
+	for {
+		if len(elem.Name) > 0 {
+			lit := p.FindTypeLit(r.Imports, strings.Or(elem.Package, r.Package), elem.Name)
+			if (lit != nil) && (!IsStruct(lit)) {
+				g.SliceElementBegin()
+				GenerateTypeLit(g, r, p, lit, specName, lit.String(), varName, comments, false)
+				g.SliceElementEnd()
+				break
+			}
+		}
+		g.SliceElementBegin()
+		GenerateType(g, r, p, elem, specName, varName, comments, false)
+		g.SliceElementEnd()
+		break
+	}
+	r.Tabs--
+	r.Line("}")
+}
+
+func SkipField(g Generator, field *StructField) bool {
 	if g.SkipField(field) {
 		return true
 	}
 
 	if len(field.Name) == 0 {
-		*//* struct { myType } *//*
+		/* struct { myType } */
 		if (len(field.Type.Name) > 0) && (Private(field.Type.Name[0])) {
 			return true
 		}
-		*//* struct { int } *//*
+		/* struct { int } */
 		if (field.Type.Literal != nil) && (Private(field.Type.Literal.String()[0])) {
 			return true
 		}
@@ -108,26 +127,26 @@ func SkipField(g Generator, field *Field) bool {
 	return false
 }
 
-func GenerateStructFields(r *Result, p *Parser, fields []StructField, specName string, varName string, comments []Comment, forbiddenFields KeySet) {
-	fields := make(KeySet)
+func GenerateStructFields(g Generator, r *Result, p *Parser, fields []StructField, specName string, varName string, comments []Comment, forbiddenFields KeySet) {
+	currentFields := make(KeySet)
 	for _, field := range fields {
-		if SkipField(g, field) {
+		if SkipField(g, &field) {
 			continue
 		}
 		fieldName := strings.Or(field.Name, field.Type.Name)
-		fields[fieldName] = struct{}{}
+		currentFields[fieldName] = struct{}{}
 	}
 
 	for _, field := range fields {
-		if SkipField(g, field) {
+		if SkipField(g, &field) {
 			continue
 		}
 
 		fieldName := strings.Or(field.Name, field.Type.Name)
-		varName = fmt.Sprinf("%s.%s", varName, fieldName)
+		name := fmt.Sprintf("%s.%s", varName, fieldName)
 
-		if (field.Name == 0) && (len(field.Type.Name) > 0) {
-			lit := e.FindTypeLit(r.Imports, strings.Or(field.Type.Package, r.Package), field.Type.Name)
+		if (len(field.Name) == 0) && (len(field.Type.Name) > 0) {
+			lit := p.FindTypeLit(r.Imports, strings.Or(field.Type.Package, r.Package), field.Type.Name)
 			if s, ok := lit.(*Struct); ok {
 				for i := 0; i < len(s.Fields); i++ {
 					f := &s.Fields[i]
@@ -135,22 +154,22 @@ func GenerateStructFields(r *Result, p *Parser, fields []StructField, specName s
 						f.Type.Package = field.Type.Package
 					}
 				}
-				GenerateStructFields(r, p, s.Fields, specName, varName, comments, fields)
+				GenerateStructFields(g, r, p, s.Fields, specName, name, comments, currentFields)
 				continue
 			} else if lit != nil {
 				if _, ok := forbiddenFields[fieldName]; !ok {
-					g.StructFieldBegin(...)
-					GenerateTypeLit(...)
-					g.StructFieldEnd(...)
+					g.StructFieldBegin(r, p, fieldName, specName, name, comments)
+					GenerateTypeLit(g, r, p, lit, specName, lit.String(), name, comments, false)
+					g.StructFieldEnd(r, p, fieldName, specName, name, comments)
 				}
 				continue
 			}
 		}
 
 		if _, ok := forbiddenFields[fieldName]; !ok {
-			g.StructFieldBegin(...)
-			GenerateType(...)
-			g.StructFieldEnd(...)
+			g.StructFieldBegin(r, p, fieldName, specName, name, comments)
+			GenerateType(g, r, p, &field.Type, specName, name, comments, false)
+			g.StructFieldEnd(r, p, fieldName, specName, name, comments)
 		}
 	}
 }
@@ -158,4 +177,8 @@ func GenerateStructFields(r *Result, p *Parser, fields []StructField, specName s
 func GenerateArrayElements() {
 
 }
-*/
+
+func GeneratorsAll() []Generator {
+	//return append(append(GeneratorsFillAll(), GeneratorVerify{}), GeneratorsEncodingAll()...)
+	return nil
+}

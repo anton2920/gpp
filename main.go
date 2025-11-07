@@ -174,7 +174,7 @@ func main() {
 						switch comment := comment.(type) {
 						case GenerateComment:
 							for _, g := range comment.Generators {
-								g.Generate(&r, &p, &spec)
+								Generate(g, &r, &p, &spec)
 							}
 						}
 					}

@@ -48,6 +48,12 @@ func (r *Result) AddImport(s string) {
 	r.DoImports = append(r.DoImports, insert)
 }
 
+func (r *Result) AddImports(is []string) {
+	for _, i := range is {
+		r.AddImport(i)
+	}
+}
+
 func (r *Result) AddConstant(name string, value string) Constant {
 	constant := Constant{Name: name, Value: value}
 	if len(constant.Value) > 0 {

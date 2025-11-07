@@ -91,7 +91,7 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 							var list string
 							switch {
 							case gen == "":
-								gc.Generators = append(gc.Generators, GeneratorsFillAll()...)
+								// gc.Generators = append(gc.Generators, GeneratorsFillAll()...)
 							case gen.Match("(%s)", &list):
 								var done bool
 
@@ -105,14 +105,14 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 
 									switch s {
 									case "values":
-										gc.Generators = append(gc.Generators, GeneratorFillValues{})
+										// gc.Generators = append(gc.Generators, GeneratorFillValues{})
 									}
 
 									lit = rest
 								}
 							}
 						case gen.Match("verify"):
-							gc.Generators = append(gc.Generators, GeneratorVerify{})
+							// gc.Generators = append(gc.Generators, GeneratorVerify{})
 						case gen.Match("encoding..."):
 							var list string
 							switch {
@@ -131,9 +131,9 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 
 									switch s {
 									case "json":
-										gc.Generators = append(gc.Generators, GeneratorJSON{})
+										gc.Generators = append(gc.Generators, GeneratorsEncodingJSONAll()...)
 									case "wire":
-										gc.Generators = append(gc.Generators, GeneratorWire{})
+										// gc.Generators = append(gc.Generators, GeneratorWire{})
 									}
 
 									lit = rest

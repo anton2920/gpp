@@ -1,5 +1,6 @@
 package main
 
 func GeneratorsFillAll() []Generator {
-	return []Generator{GeneratorFillValues{}}
+	//return []Generator{GeneratorFillValues{}}
+	return nil
 }
