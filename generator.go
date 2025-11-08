@@ -10,23 +10,17 @@ import (
 type KeySet map[string]struct{}
 
 type Generator interface {
-	NOP([]Comment) bool
-
 	Imports() []string
-	Func(string, string) string
+	Func(specName string, varName string) string
 	Return() string
 
-	NamedType(*Result, *Parser, *Type, string, string, []Comment, bool)
+	NamedType(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool)
 	Primitive(r *Result, p *Parser, lit TypeLit, specName string, fieldName string, castName string, varName string, comments []Comment, pointer bool)
 
-	//Array(*Result, *Parser, *Array, string, string, []Comment, bool)
-	//ArrayElementBegin()
-	//ArrayElementEnd()
+	Slice(r *Result, p *Parser, s *Slice, specName string, varName string, comments []Comment)
 
-	Slice(*Result, *Parser, *Slice, string, string, []Comment)
-
-	Struct(*Result, *Parser, *Struct, string, string)
-	StructField(*Result, *Parser, *StructField, TypeLit, string, string, string)
+	Struct(r *Result, p *Parser, s *Struct, specName string, varName string)
+	StructField(r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName string, varName string)
 }
 
 func Private(c byte) bool {
@@ -51,10 +45,6 @@ func Generate(g Generator, r *Result, p *Parser, ts *TypeSpec) {
 }
 
 func GenerateType(g Generator, r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, varPointer bool) {
-	if g.NOP(comments) {
-		return
-	}
-
 	if t.Literal != nil {
 		GenerateTypeLit(g, r, p, t.Literal, specName, "", "", varName, comments, varPointer)
 	} else {
@@ -66,10 +56,6 @@ func GenerateType(g Generator, r *Result, p *Parser, t *Type, specName string, v
 }
 
 func GenerateTypeLit(g Generator, r *Result, p *Parser, lit TypeLit, specName string, fieldName string, castName string, varName string, comments []Comment, varPointer bool) {
-	if g.NOP(comments) {
-		return
-	}
-
 	switch lit := lit.(type) {
 	case *Int, *Float, *String:
 		g.Primitive(r, p, lit, specName, fieldName, castName, varName, comments, varPointer)
@@ -86,18 +72,14 @@ func GenerateSliceElement(g Generator, r *Result, p *Parser, elem *Type, specNam
 	if len(elem.Name) > 0 {
 		lit := p.FindTypeLit(r.Imports, strings.Or(elem.Package, r.Package), elem.Name)
 		if (lit != nil) && (!IsStruct(lit)) {
-			//g.SliceElementBegin()
 			GenerateTypeLit(g, r, p, lit, specName, "", lit.String(), varName, comments, false)
-			//g.SliceElementEnd()
 			return
 		}
 	}
-	//g.SliceElementBegin()
 	GenerateType(g, r, p, elem, specName, varName, comments, false)
-	//g.SliceElementEnd()
 }
 
-func SkipField(g Generator, field *StructField) bool {
+func SkipField(field *StructField) bool {
 	if len(field.Name) == 0 {
 		/* struct { myType } */
 		if (len(field.Type.Name) > 0) && (Private(field.Type.Name[0])) {
@@ -114,7 +96,7 @@ func SkipField(g Generator, field *StructField) bool {
 func GenerateStructFields(g Generator, r *Result, p *Parser, fields []StructField, specName string, varName string, forbiddenFields KeySet) {
 	currentFields := make(KeySet)
 	for _, field := range fields {
-		if SkipField(g, &field) {
+		if SkipField(&field) {
 			continue
 		}
 		fieldName := strings.Or(field.Name, field.Type.Name)
@@ -122,7 +104,7 @@ func GenerateStructFields(g Generator, r *Result, p *Parser, fields []StructFiel
 	}
 
 	for _, field := range fields {
-		if SkipField(g, &field) {
+		if SkipField(&field) {
 			continue
 		}
 
@@ -151,6 +133,5 @@ func GenerateStructFields(g Generator, r *Result, p *Parser, fields []StructFiel
 }
 
 func GeneratorsAll() []Generator {
-	//return append(append(GeneratorsFillAll(), GeneratorVerify{}), GeneratorsEncodingAll()...)
-	return nil
+	return append(append(GeneratorsFillAll(), GeneratorVerify{}), GeneratorsEncodingAll()...)
 }

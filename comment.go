@@ -112,7 +112,7 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 								}
 							}
 						case gen.Match("verify"):
-							// gc.Generators = append(gc.Generators, GeneratorVerify{})
+							gc.Generators = append(gc.Generators, GeneratorVerify{})
 						case gen.Match("encoding..."):
 							var list string
 							switch {

@@ -9,15 +9,6 @@ import (
 
 type GeneratorFillValues struct{}
 
-func (g GeneratorFillValues) NOP(comments []Comment) bool {
-	for _, comment := range comments {
-		if fc, ok := comment.(FillComment); ok {
-			return fc.NOP
-		}
-	}
-	return false
-}
-
 func (g GeneratorFillValues) Imports() []string {
 	return []string{GOFA + "net/url"}
 }
@@ -92,6 +83,14 @@ func (g GeneratorFillValues) Struct(r *Result, p *Parser, s *Struct, specName st
 }
 
 func (g GeneratorFillValues) StructField(r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName string, varName string) {
+	for _, comment := range field.Comments {
+		if fc, ok := comment.(FillComment); ok {
+			if fc.NOP {
+				return
+			}
+		}
+	}
+
 	if lit != nil {
 		GenerateTypeLit(g, r, p, lit, specName, fieldName, field.Type.Name, varName, field.Comments, false)
 	} else if field.Type.Name == "" {

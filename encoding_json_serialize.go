@@ -7,10 +7,6 @@ import (
 
 type GeneratorEncodingJSONSerialize struct{}
 
-func (g GeneratorEncodingJSONSerialize) NOP([]Comment) bool {
-	return false
-}
-
 func (g GeneratorEncodingJSONSerialize) Imports() []string {
 	return []string{GOFA + "encoding/json"}
 }

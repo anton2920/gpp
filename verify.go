@@ -9,55 +9,70 @@ import (
 
 type GeneratorVerify struct{}
 
-func (g GeneratorVerify) Generate(r *Result, p *Parser, ts *TypeSpec) {
-	r.AddImport(GOFA + "l10n")
-	name := VariableName(ts.Name, false)
+func (g GeneratorVerify) NOP(comments []Comment) bool {
+	for _, comment := range comments {
+		if _, ok := comment.(VerifyComment); ok {
+			return true
+			break
+		}
+	}
+	return false
+}
 
-	r.Printf("\nfunc Verify%s(l l10n.Language, %s *%s) error {", ts.Name, name, ts.Name)
-	r.Tabs++
+func (g GeneratorVerify) Imports() []string {
+	return []string{GOFA + "l10n"}
+}
 
-	g.GenerateType(r, p, ts.Name, name, &ts.Type, VerifyComment{})
+func (g GeneratorVerify) Func(specName string, varName string) string {
+	return fmt.Sprintf("Verify%s(l l10n.Language, %s *%s) error {", specName, varName, specName)
+}
 
-	r.Line("return nil")
+func (g GeneratorVerify) Return() string {
+	return "nil"
+}
+
+func (g GeneratorVerify) NamedType(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool) {
+	tabs := r.Tabs
+
+	r.String("if err := ")
+
+	if len(t.Package) > 0 {
+		r.AddImport(t.Package)
+		r.Tabs = 0
+		r.String(t.Package)
+		r.Rune('.')
+	}
+
+	r.Printf("Verify%s(l, &%s); err != nil {", t.Name, varName)
+	r.Tabs = tabs + 1
+	{
+		r.Line("return err")
+	}
 	r.Tabs--
 	r.Line("}")
 }
 
-func (g GeneratorVerify) GenerateType(r *Result, p *Parser, key string, name string, t *Type, vc VerifyComment) {
-	if t.Literal != nil {
-		g.GenerateTypeLit(r, p, key, name, t.Literal, vc)
-	} else {
-		tabs := r.Tabs
+func (g GeneratorVerify) Primitive(r *Result, p *Parser, lit TypeLit, specName string, fieldName string, castName string, varName string, comments []Comment, pointer bool) {
+	vn := VariableName(fieldName, false)
 
-		r.String("if err := ")
-
-		if len(t.Package) > 0 {
-			r.AddImport(t.Package)
-			r.Tabs = 0
-			r.String(t.Package)
-			r.Rune('.')
+	var vc VerifyComment
+	for _, comment := range comments {
+		if c, ok := comment.(VerifyComment); ok {
+			strings.Replace(&vc.Min, c.Min)
+			strings.Replace(&vc.Max, c.Max)
+			strings.Replace(&vc.MinLength, c.MinLength)
+			strings.Replace(&vc.MaxLength, c.MaxLength)
+			vc.Funcs = append(vc.Funcs, c.Funcs...)
 		}
-
-		r.Printf("Verify%s(l, &%s); err != nil {", t.Name, name)
-		r.Tabs = tabs + 1
-		{
-			r.Line("return err")
-		}
-		r.Tabs--
-		r.Line("}")
 	}
-}
 
-func (g GeneratorVerify) GenerateTypeLit(r *Result, p *Parser, key string, name string, lit TypeLit, vc VerifyComment) {
-	vn := VariableName(key, false)
-
-	switch lit := lit.(type) {
+	switch lit.(type) {
 	case *Int, *Float:
-		minConst := r.AddConstant("Min"+key, vc.Min)
-		maxConst := r.AddConstant("Max"+key, vc.Max)
+		minConst := r.AddConstant("Min"+specName+fieldName, vc.Min)
+		maxConst := r.AddConstant("Max"+specName+fieldName, vc.Max)
 
 		if (len(vc.Min) > 0) && (len(vc.Max) > 0) {
-			r.Printf("if (%s < %s) || (%s > %s) {", name, minConst.Name, name, maxConst.Name)
+			r.Printf("if (%s < %s) || (%s > %s) {", varName, minConst.Name, varName, maxConst.Name)
 			r.Tabs++
 			{
 				r.AddImport("fmt")
@@ -66,7 +81,7 @@ func (g GeneratorVerify) GenerateTypeLit(r *Result, p *Parser, key string, name 
 			r.Tabs--
 			r.Line("}")
 		} else if len(vc.Min) > 0 {
-			r.Printf("if %s < %s {", name, minConst.Name)
+			r.Printf("if %s < %s {", varName, minConst.Name)
 			r.Tabs++
 			{
 				r.AddImport("fmt")
@@ -75,7 +90,7 @@ func (g GeneratorVerify) GenerateTypeLit(r *Result, p *Parser, key string, name 
 			r.Tabs--
 			r.Line("}")
 		} else if len(vc.Max) > 0 {
-			r.Printf("if %s > %s {", name, maxConst.Name)
+			r.Printf("if %s > %s {", varName, maxConst.Name)
 			r.Tabs++
 			{
 				r.AddImport("fmt")
@@ -86,10 +101,10 @@ func (g GeneratorVerify) GenerateTypeLit(r *Result, p *Parser, key string, name 
 		}
 	case *String:
 		if (len(vc.MinLength) > 0) && (len(vc.MaxLength) > 0) {
-			minLengthConst := r.AddConstant("Min"+key+"Len", vc.MinLength)
-			maxLengthConst := r.AddConstant("Max"+key+"Len", vc.MaxLength)
+			minLengthConst := r.AddConstant("Min"+specName+fieldName+"Len", vc.MinLength)
+			maxLengthConst := r.AddConstant("Max"+specName+fieldName+"Len", vc.MaxLength)
 
-			r.Printf("if !strings.LengthInRange(%s, %s, %s) {", name, minLengthConst.Name, maxLengthConst.Name)
+			r.Printf("if !strings.LengthInRange(%s, %s, %s) {", varName, minLengthConst.Name, maxLengthConst.Name)
 			r.Tabs++
 			{
 				r.AddImport("fmt")
@@ -101,9 +116,9 @@ func (g GeneratorVerify) GenerateTypeLit(r *Result, p *Parser, key string, name 
 		}
 		for _, fn := range vc.Funcs {
 			if !strings.StartsWith(fn, "{") {
-				fn = fmt.Sprintf("%s(l, %s)", fn, name)
+				fn = fmt.Sprintf("%s(l, %s)", fn, varName)
 			} else {
-				fn = stdstrings.Replace(fn[1:len(fn)-1], "?", name, 1)
+				fn = stdstrings.Replace(fn[1:len(fn)-1], "?", varName, 1)
 			}
 			r.Printf("if err := %s; err != nil {", fn)
 			r.Tabs++
@@ -113,24 +128,26 @@ func (g GeneratorVerify) GenerateTypeLit(r *Result, p *Parser, key string, name 
 			r.Tabs--
 			r.Line("}")
 		}
-	case *Struct:
-		g.GenerateStruct(r, p, key, name, lit)
-	case *Slice:
 	}
 }
 
-func (g GeneratorVerify) GenerateStruct(r *Result, p *Parser, key string, name string, s *Struct) {
-	g.GenerateStructFields(r, p, key, name, s.Fields)
+func (g GeneratorVerify) Slice(*Result, *Parser, *Slice, string, string, []Comment) {}
+
+func (g GeneratorVerify) Struct(r *Result, p *Parser, s *Struct, specName string, varName string) {
+	GenerateStructFields(g, r, p, s.Fields, specName, varName, nil)
 }
 
-func (g GeneratorVerify) GenerateStructFields(r *Result, p *Parser, key string, name string, fields []StructField) {
-	for _, field := range fields {
-		for _, comment := range field.Comments {
-			if vc, ok := comment.(VerifyComment); ok {
-				fieldName := strings.Or(field.Name, field.Type.Name)
-				g.GenerateType(r, p, key+fieldName, fmt.Sprintf("%s.%s", name, fieldName), &field.Type, vc)
-				// fmt.Printf("For field %q: %#v\n", key, vc)
+func (g GeneratorVerify) StructField(r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName string, varName string) {
+	for _, comment := range field.Comments {
+		if _, ok := comment.(VerifyComment); ok {
+			if lit != nil {
+				GenerateTypeLit(g, r, p, lit, specName, fieldName, field.Type.Name, varName, field.Comments, false)
+			} else if field.Type.Name == "" {
+				GenerateTypeLit(g, r, p, field.Type.Literal, specName, fieldName, "", varName, field.Comments, false)
+			} else {
+				GenerateType(g, r, p, &field.Type, specName, varName, field.Comments, false)
 			}
+			break
 		}
 	}
 }
