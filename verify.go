@@ -24,7 +24,7 @@ func (g GeneratorVerify) Imports() []string {
 }
 
 func (g GeneratorVerify) Func(specName string, varName string) string {
-	return fmt.Sprintf("Verify%s(l l10n.Language, %s *%s) error {", specName, varName, specName)
+	return fmt.Sprintf("Verify%s(l l10n.Language, %s *%s) error", specName, varName, specName)
 }
 
 func (g GeneratorVerify) Return() string {
@@ -140,13 +140,7 @@ func (g GeneratorVerify) Struct(r *Result, p *Parser, s *Struct, specName string
 func (g GeneratorVerify) StructField(r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName string, varName string) {
 	for _, comment := range field.Comments {
 		if _, ok := comment.(VerifyComment); ok {
-			if lit != nil {
-				GenerateTypeLit(g, r, p, lit, specName, fieldName, field.Type.Name, varName, field.Comments, false)
-			} else if field.Type.Name == "" {
-				GenerateTypeLit(g, r, p, field.Type.Literal, specName, fieldName, "", varName, field.Comments, false)
-			} else {
-				GenerateType(g, r, p, &field.Type, specName, varName, field.Comments, false)
-			}
+			GenerateStructField(g, r, p, field, lit, specName, fieldName, field.Type.Name, varName, field.Comments)
 			break
 		}
 	}

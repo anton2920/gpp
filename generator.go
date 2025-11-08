@@ -46,7 +46,7 @@ func Generate(g Generator, r *Result, p *Parser, ts *TypeSpec) {
 
 func GenerateType(g Generator, r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, varPointer bool) {
 	if t.Literal != nil {
-		GenerateTypeLit(g, r, p, t.Literal, specName, "", "", varName, comments, varPointer)
+		GenerateTypeLit(g, r, p, t.Literal, specName, "", t.Literal.String(), varName, comments, varPointer)
 	} else {
 		if len(t.Package) > 0 {
 			r.AddImport(t.Package)
@@ -91,6 +91,16 @@ func SkipField(field *StructField) bool {
 		}
 	}
 	return false
+}
+
+func GenerateStructField(g Generator, r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName string, castName string, varName string, comments []Comment) {
+	if lit != nil {
+		GenerateTypeLit(g, r, p, lit, specName, fieldName, castName, varName, field.Comments, false)
+	} else if field.Type.Name == "" {
+		GenerateTypeLit(g, r, p, field.Type.Literal, specName, fieldName, "", varName, field.Comments, false)
+	} else {
+		GenerateType(g, r, p, &field.Type, specName, varName, field.Comments, false)
+	}
 }
 
 func GenerateStructFields(g Generator, r *Result, p *Parser, fields []StructField, specName string, varName string, forbiddenFields KeySet) {

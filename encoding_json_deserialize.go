@@ -12,7 +12,7 @@ func (g GeneratorEncodingJSONDeserialize) Imports() []string {
 }
 
 func (g GeneratorEncodingJSONDeserialize) Func(specName string, varName string) string {
-	return fmt.Sprintf("Deserialize%sJSON(s *json.Deserializer, %s *%s) bool", specName, varName, specName)
+	return fmt.Sprintf("Deserialize%sJSON(d *json.Deserializer, %s *%s) bool", specName, varName, specName)
 }
 
 func (g GeneratorEncodingJSONDeserialize) Return() string {
@@ -29,7 +29,7 @@ func (g GeneratorEncodingJSONDeserialize) NamedType(r *Result, p *Parser, t *Typ
 		r.Rune('.')
 	}
 
-	r.Printf("Deserialize%sJSON(s, &%s)", t.Name, varName)
+	r.Printf("Deserialize%sJSON(d, &%s)", t.Name, varName)
 	r.Tabs = tabs
 }
 
@@ -44,7 +44,7 @@ func (g GeneratorEncodingJSONDeserialize) Primitive(r *Result, p *Parser, lit Ty
 		r.Printf("d.%c%s(%s%s)", unicode.ToUpper(rune(litName[0])), litName[1:], amp, varName)
 	} else {
 		r.AddImport("unsafe")
-		r.Printf("d.%c%s((*%s)(unsafe.Pointer(%s%s))", unicode.ToUpper(rune(litName[0])), litName[1:], castName, amp, varName)
+		r.Printf("d.%c%s((*%s)(unsafe.Pointer(%s%s)))", unicode.ToUpper(rune(litName[0])), litName[1:], castName, amp, varName)
 	}
 }
 
@@ -70,13 +70,9 @@ func (g GeneratorEncodingJSONDeserialize) StructField(r *Result, p *Parser, fiel
 
 	r.Printf("case \"%s\":", fieldName)
 	r.Tabs++
-
-	if lit != nil {
-		GenerateTypeLit(g, r, p, lit, specName, fieldName, lit.String(), varName, field.Comments, false)
-	} else {
-		GenerateType(g, r, p, &field.Type, specName, varName, field.Comments, false)
+	{
+		GenerateStructField(g, r, p, field, lit, specName, fieldName, LiteralName(lit), varName, field.Comments)
 	}
-
 	r.Tabs--
 }
 

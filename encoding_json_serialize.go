@@ -59,19 +59,17 @@ func (g GeneratorEncodingJSONSerialize) StructField(r *Result, p *Parser, field 
 	}
 
 	r.Printf("s.Key(`%s`)", fieldName)
-	if lit != nil {
-		GenerateTypeLit(g, r, p, lit, specName, fieldName, lit.String(), varName, field.Comments, false)
-	} else {
-		GenerateType(g, r, p, &field.Type, specName, varName, field.Comments, false)
-	}
+	GenerateStructField(g, r, p, field, lit, specName, fieldName, LiteralName(lit), varName, field.Comments)
 }
 
 func (g GeneratorEncodingJSONSerialize) Slice(r *Result, p *Parser, s *Slice, specName string, varName string, comments []Comment) {
+	const element = "element"
+
 	r.Line("s.ArrayBegin()")
-	r.Printf("for _, element := range %s {", varName)
+	r.Printf("for _, %s := range %s {", element, varName)
 	r.Tabs++
 	{
-		GenerateSliceElement(g, r, p, &s.Element, specName, varName, comments)
+		GenerateSliceElement(g, r, p, &s.Element, specName, element, comments)
 	}
 	r.Tabs--
 	r.Line("}")

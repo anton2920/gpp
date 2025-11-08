@@ -55,14 +55,16 @@ func (g GeneratorFillValues) Primitive(r *Result, p *Parser, lit TypeLit, specNa
 		if (len(castName) == 0) || (litName == castName) {
 			r.Printf(`%s%s, _ = vs.Get%c%s("%s")`, star, varName, unicode.ToUpper(rune(litName[0])), litName[1:], fieldName)
 		} else {
+			const tmp = "tmp"
+
 			r.Line("{")
 			r.Tabs++
-			r.Printf(`tmp, _ := vs.Get%c%s("%s")`, unicode.ToUpper(rune(litName[0])), litName[1:], fieldName)
+			r.Printf(`%s, _ := vs.Get%c%s("%s")`, tmp, unicode.ToUpper(rune(litName[0])), litName[1:], fieldName)
 			if !fc.Enum {
-				r.Printf("%s%s = %s(tmp)", star, varName, castName)
+				r.Printf("%s%s = %s(%s)", star, varName, castName, tmp)
 			} else {
 				r.AddImport(GOFA + "ints")
-				r.Printf("%s%s = %s(ints.Clamp(int(%s), int(%sNone+1), int(%sCount)))", star, varName, castName, varName, castName, castName)
+				r.Printf("%s%s = %s(ints.Clamp(int(%s), 1, int(%sCount)))", star, varName, castName, tmp, castName)
 			}
 			r.Tabs--
 			r.Line("}")
@@ -90,12 +92,5 @@ func (g GeneratorFillValues) StructField(r *Result, p *Parser, field *StructFiel
 			}
 		}
 	}
-
-	if lit != nil {
-		GenerateTypeLit(g, r, p, lit, specName, fieldName, field.Type.Name, varName, field.Comments, false)
-	} else if field.Type.Name == "" {
-		GenerateTypeLit(g, r, p, field.Type.Literal, specName, fieldName, "", varName, field.Comments, false)
-	} else {
-		GenerateType(g, r, p, &field.Type, specName, varName, field.Comments, false)
-	}
+	GenerateStructField(g, r, p, field, lit, specName, fieldName, field.Type.Name, varName, field.Comments)
 }
