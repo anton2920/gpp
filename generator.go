@@ -17,10 +17,13 @@ type Generator interface {
 	NamedType(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool)
 	Primitive(r *Result, p *Parser, lit TypeLit, specName string, fieldName string, castName string, varName string, comments []Comment, pointer bool)
 
+	Struct(r *Result, p *Parser, s *Struct, specName string, varName string, comments []Comment)
+	StructField(r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName string, varName string)
+
+	Array(r *Result, p *Parser, a *Array, specName string, varName string, comments []Comment)
 	Slice(r *Result, p *Parser, s *Slice, specName string, varName string, comments []Comment)
 
-	Struct(r *Result, p *Parser, s *Struct, specName string, varName string)
-	StructField(r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName string, varName string)
+	Union(r *Result, p *Parser, u *Union, specName string, varName string, comments []Comment)
 }
 
 func Private(c byte) bool {
@@ -59,24 +62,15 @@ func GenerateTypeLit(g Generator, r *Result, p *Parser, lit TypeLit, specName st
 	switch lit := lit.(type) {
 	case *Int, *Float, *String:
 		g.Primitive(r, p, lit, specName, fieldName, castName, varName, comments, varPointer)
-	//case *Array:
-	//	g.Array(r, p, lit, specName, varName, comments)
+	case *Array:
+		g.Array(r, p, lit, specName, varName, comments)
 	case *Slice:
 		g.Slice(r, p, lit, specName, varName, comments)
 	case *Struct:
-		g.Struct(r, p, lit, specName, varName)
+		g.Struct(r, p, lit, specName, varName, comments)
+	case *Union:
+		g.Union(r, p, lit, specName, varName, comments)
 	}
-}
-
-func GenerateSliceElement(g Generator, r *Result, p *Parser, elem *Type, specName string, varName string, comments []Comment) {
-	if len(elem.Name) > 0 {
-		lit := p.FindTypeLit(r.Imports, strings.Or(elem.Package, r.Package), elem.Name)
-		if (lit != nil) && (!IsStruct(lit)) {
-			GenerateTypeLit(g, r, p, lit, specName, "", lit.String(), varName, comments, false)
-			return
-		}
-	}
-	GenerateType(g, r, p, elem, specName, varName, comments, false)
 }
 
 func SkipField(field *StructField) bool {
@@ -140,6 +134,21 @@ func GenerateStructFields(g Generator, r *Result, p *Parser, fields []StructFiel
 			g.StructField(r, p, &field, lit, specName, fieldName, name)
 		}
 	}
+}
+
+func GenerateSliceElement(g Generator, r *Result, p *Parser, elem *Type, specName string, varName string, comments []Comment) {
+	if len(elem.Name) > 0 {
+		lit := p.FindTypeLit(r.Imports, strings.Or(elem.Package, r.Package), elem.Name)
+		if (lit != nil) && (!IsStruct(lit)) {
+			GenerateTypeLit(g, r, p, lit, specName, "", lit.String(), varName, comments, false)
+			return
+		}
+	}
+	GenerateType(g, r, p, elem, specName, varName, comments, false)
+}
+
+func GenerateUnion(g Generator, r *Result, p *Parser) {
+
 }
 
 func GeneratorsAll() []Generator {

@@ -46,6 +46,10 @@ type Slice struct {
 	Element Type
 }
 
+type Union struct {
+	Types []string
+}
+
 type String struct{}
 
 type StructField struct {
@@ -119,6 +123,10 @@ func (s *String) String() string {
 
 func (s *Struct) String() string {
 	return "struct"
+}
+
+func (u *Union) String() string {
+	return "union"
 }
 
 func (p *Parser) Array(a *Array) bool {
@@ -286,6 +294,21 @@ func (p *Parser) Struct(s *Struct) bool {
 				}
 			}
 			//fmt.Printf("%#v\n", s)
+			p.Next()
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Parser) Interface(i *Interface) bool {
+	if p.Token(token.INTERFACE) {
+		if p.Token(token.LBRACE) {
+			for p.Curr().GoToken != token.RBRACE {
+				p.Next()
+			}
+			//fmt.Printf("%#v\n", i)
+			p.Next()
 			return true
 		}
 	}
@@ -350,6 +373,13 @@ func (p *Parser) TypeLit(tl *TypeLit) bool {
 		s := new(Struct)
 		if p.Struct(s) {
 			*tl = s
+			return true
+		}
+		return false
+	case token.INTERFACE:
+		i := new(Interface)
+		if p.Interface(i) {
+			*tl = i
 			return true
 		}
 		return false

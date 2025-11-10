@@ -121,8 +121,11 @@ func (p *Parser) TypeSpec(ts *TypeSpec) bool {
 	p.Error = nil
 
 	if p.Ident(&ts.Name) {
-		p.TypeParams(&ts.Params)
-		p.Error = nil
+		pos := p.Position
+		if !p.TypeParams(&ts.Params) {
+			p.Position = pos
+			p.Error = nil
+		}
 
 		if p.Token(token.ASSIGN) {
 			ts.Alias = true
@@ -131,6 +134,14 @@ func (p *Parser) TypeSpec(ts *TypeSpec) bool {
 
 		if p.Type(&ts.Type) {
 			ts.Comments = comments
+			if _, ok := ts.Type.Literal.(*Interface); ok {
+				for _, comment := range comments {
+					if uc, ok := comment.(UnionComment); ok {
+						ts.Type.Literal = &Union{Types: uc.Types}
+						break
+					}
+				}
+			}
 			return true
 		}
 	}
@@ -152,20 +163,17 @@ func (p *Parser) TypeDecl(tss *[]TypeSpec) bool {
 				if !p.Token(token.SEMICOLON) {
 					return false
 				}
-				if ts.Comments == nil {
-					ts.Comments = comments
-				}
+				ts.Comments = append(comments, ts.Comments...)
 				*tss = append(*tss, ts)
 			}
+			p.Next()
 			return true
 		}
 		p.Error = nil
 
 		var ts TypeSpec
 		if p.TypeSpec(&ts) {
-			if ts.Comments == nil {
-				ts.Comments = comments
-			}
+			ts.Comments = append(comments, ts.Comments...)
 			*tss = append(*tss, ts)
 			return true
 		}

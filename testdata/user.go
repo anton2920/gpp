@@ -15,12 +15,12 @@ const (
 	UserTypeCount
 )
 
-//gpp:generate: fill(values), verify, encoding(json)
+//gpp:generate: encoding(wire)
 type User struct {
 	RecordHeader database.RecordHeader //gpp:fill: nop
 
-	FirstName string //gpp:verify: MinLength=1, MaxLenght=45, Func=NameValid
-	LastName  string //gpp:verify: MinLength=1, MaxLenght=45, Func=NameValid
+	FirstName string //gpp:verify: MinLength=1, MaxLength=45, Func=NameValid
+	LastName  string //gpp:verify: MinLength=1, MaxLength=45, Func=NameValid
 	Email     string //gpp:verify: MinLength=1, MaxLength=128, Func=EmailValid
 	Password  string `json:"-"` //gpp:verify: MinLength=5, MaxLength=45
 
@@ -36,3 +36,5 @@ func NameValid(l l10n.Language, name string) error {
 func EmailValid(l l10n.Language, email string) error {
 	return nil
 }
+
+//gpp:generate: fill(values), verify, encoding(json,wire)

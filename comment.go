@@ -33,6 +33,25 @@ type VerifyComment struct {
 	Funcs     []string
 }
 
+type UnionComment struct {
+	Types []string
+}
+
+func FixMyCut(s *string, rest *string, c1 byte, c2 byte) {
+	l := strings.FindChar(*s, c1)
+	if l >= 0 {
+		r := strings.FindChar(*s, c2)
+		if r == -1 {
+			r := strings.FindChar(*rest, c2)
+			if r == -1 {
+				return
+			}
+			*s = fmt.Sprintf("%s,%s", *s, (*rest)[:r+1])
+			*rest = (*rest)[r+1:]
+		}
+	}
+}
+
 func (p *Parser) Comments(comments *[]Comment) bool {
 	const prefix = "gpp:"
 
@@ -83,7 +102,9 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 						if !ok {
 							done = true
 						}
+
 						s = strings.TrimSpace(s)
+						FixMyCut(&s, &rest, '(', ')')
 
 						gen := url.Path(s)
 						switch {
@@ -118,6 +139,8 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 							switch {
 							case gen == "":
 								gc.Generators = append(gc.Generators, GeneratorsEncodingAll()...)
+
+							/* TODO(anton2920): fix case when list is 'json, wire' (with space). */
 							case gen.Match("(%s)", &list):
 								var done bool
 
@@ -129,11 +152,12 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 									}
 									s = strings.TrimSpace(s)
 
+									/* TODO(anton2920): add logic for processing 'json(serialize, deserialize)' */
 									switch s {
 									case "json":
 										gc.Generators = append(gc.Generators, GeneratorsEncodingJSONAll()...)
 									case "wire":
-										// gc.Generators = append(gc.Generators, GeneratorWire{})
+										gc.Generators = append(gc.Generators, GeneratorsEncodingWireAll()...)
 									}
 
 									lit = rest
@@ -156,20 +180,9 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 					if !ok {
 						done = true
 					}
-					s = strings.TrimSpace(s)
 
-					lbrace := strings.FindChar(s, '{')
-					if lbrace >= 0 {
-						rbrace := strings.FindChar(s, '}')
-						if rbrace == -1 {
-							rbrace := strings.FindChar(rest, '}')
-							if rbrace == -1 {
-								break
-							}
-							s = fmt.Sprintf("%s,%s", s, rest[:rbrace+1])
-							rest = rest[rbrace+1:]
-						}
-					}
+					s = strings.TrimSpace(s)
+					FixMyCut(&s, &rest, '{', '}')
 
 					switch stdstrings.ToLower(s) {
 					case "enum":
@@ -203,20 +216,9 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 					if !ok {
 						done = true
 					}
-					s = strings.TrimSpace(s)
 
-					lbrace := strings.FindChar(s, '{')
-					if lbrace >= 0 {
-						rbrace := strings.FindChar(s, '}')
-						if rbrace == -1 {
-							rbrace := strings.FindChar(rest, '}')
-							if rbrace == -1 {
-								break
-							}
-							s = fmt.Sprintf("%s,%s", s, rest[:rbrace+1])
-							rest = rest[rbrace+1:]
-						}
-					}
+					s = strings.TrimSpace(s)
+					FixMyCut(&s, &rest, '{', '}')
 
 					lval, rval, ok := strings.Cut(s, "=")
 					if ok {
@@ -241,6 +243,22 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 				}
 
 				*comments = append(*comments, vc)
+			case fn.Match("union:..."):
+				var uc UnionComment
+				var done bool
+
+				lit := string(fn)
+				for !done {
+					s, rest, ok := strings.Cut(lit, ",")
+					if !ok {
+						done = true
+					}
+					s = strings.TrimSpace(s)
+					uc.Types = append(uc.Types, s)
+					lit = rest
+				}
+
+				*comments = append(*comments, uc)
 			}
 
 			lit = rest

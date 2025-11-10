@@ -78,9 +78,7 @@ func (g GeneratorFillValues) Primitive(r *Result, p *Parser, lit TypeLit, specNa
 	}
 }
 
-func (g GeneratorFillValues) Slice(*Result, *Parser, *Slice, string, string, []Comment) {}
-
-func (g GeneratorFillValues) Struct(r *Result, p *Parser, s *Struct, specName string, varName string) {
+func (g GeneratorFillValues) Struct(r *Result, p *Parser, s *Struct, specName string, varName string, comments []Comment) {
 	GenerateStructFields(g, r, p, s.Fields, specName, varName, nil)
 }
 
@@ -93,4 +91,13 @@ func (g GeneratorFillValues) StructField(r *Result, p *Parser, field *StructFiel
 		}
 	}
 	GenerateStructField(g, r, p, field, lit, specName, fieldName, field.Type.Name, varName, field.Comments)
+}
+
+func (g GeneratorFillValues) Array(r *Result, p *Parser, a *Array, specName string, varName string, comments []Comment) {
+}
+
+func (g GeneratorFillValues) Slice(r *Result, p *Parser, s *Slice, specName string, varName string, comments []Comment) {
+}
+
+func (g GeneratorFillValues) Union(r *Result, p *Parser, u *Union, specName string, varName string, comments []Comment) {
 }

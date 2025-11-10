@@ -47,7 +47,7 @@ func (g GeneratorEncodingJSONSerialize) Primitive(r *Result, p *Parser, lit Type
 	}
 }
 
-func (g GeneratorEncodingJSONSerialize) Struct(r *Result, p *Parser, s *Struct, specName string, varName string) {
+func (g GeneratorEncodingJSONSerialize) Struct(r *Result, p *Parser, s *Struct, specName string, varName string, comments []Comment) {
 	r.Line("s.ObjectBegin()")
 	GenerateStructFields(g, r, p, s.Fields, specName, varName, nil)
 	r.Line("s.ObjectEnd()")
@@ -62,6 +62,9 @@ func (g GeneratorEncodingJSONSerialize) StructField(r *Result, p *Parser, field 
 	GenerateStructField(g, r, p, field, lit, specName, fieldName, LiteralName(lit), varName, field.Comments)
 }
 
+func (g GeneratorEncodingJSONSerialize) Array(r *Result, p *Parser, a *Array, specName string, varName string, comments []Comment) {
+}
+
 func (g GeneratorEncodingJSONSerialize) Slice(r *Result, p *Parser, s *Slice, specName string, varName string, comments []Comment) {
 	const element = "element"
 
@@ -74,4 +77,7 @@ func (g GeneratorEncodingJSONSerialize) Slice(r *Result, p *Parser, s *Slice, sp
 	r.Tabs--
 	r.Line("}")
 	r.Line("s.ArrayEnd()")
+}
+
+func (g GeneratorEncodingJSONSerialize) Union(r *Result, p *Parser, u *Union, specName string, varName string, comments []Comment) {
 }

@@ -48,7 +48,7 @@ func (g GeneratorEncodingJSONDeserialize) Primitive(r *Result, p *Parser, lit Ty
 	}
 }
 
-func (g GeneratorEncodingJSONDeserialize) Struct(r *Result, p *Parser, s *Struct, specName string, varName string) {
+func (g GeneratorEncodingJSONDeserialize) Struct(r *Result, p *Parser, s *Struct, specName string, varName string, comments []Comment) {
 	r.Line("var key string")
 	r.Line("d.ObjectBegin()")
 	r.Line("for d.Key(&key) {")
@@ -76,6 +76,9 @@ func (g GeneratorEncodingJSONDeserialize) StructField(r *Result, p *Parser, fiel
 	r.Tabs--
 }
 
+func (g GeneratorEncodingJSONDeserialize) Array(r *Result, p *Parser, a *Array, specName string, varName string, comments []Comment) {
+}
+
 func (g GeneratorEncodingJSONDeserialize) Slice(r *Result, p *Parser, s *Slice, specName string, varName string, comments []Comment) {
 	r.Line("d.ArrayBegin()")
 	r.Line("for d.Next() {")
@@ -89,4 +92,7 @@ func (g GeneratorEncodingJSONDeserialize) Slice(r *Result, p *Parser, s *Slice, 
 	r.Tabs--
 	r.Line("}")
 	r.Line("d.ArrayEnd()")
+}
+
+func (g GeneratorEncodingJSONDeserialize) Union(r *Result, p *Parser, u *Union, specName string, varName string, comments []Comment) {
 }
