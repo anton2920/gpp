@@ -1,5 +1,10 @@
 package main
 
+var (
+	EncodingWireSliceLengthType = "int32"
+	EncodingWireUnionKindType   = "int32"
+)
+
 func GeneratorsEncodingWireAll() []Generator {
-	return []Generator{GeneratorEncodingWireSerialize{}}
+	return []Generator{GeneratorEncodingWireSerialize{}, GeneratorEncodingWireDeserialize{}}
 }

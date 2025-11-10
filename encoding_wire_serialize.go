@@ -5,7 +5,9 @@ import (
 	"unicode"
 )
 
-type GeneratorEncodingWireSerialize struct{}
+type GeneratorEncodingWireSerialize struct {
+	Level int
+}
 
 func (g GeneratorEncodingWireSerialize) Imports() []string {
 	return []string{GOFA + "encoding/wire"}
@@ -56,20 +58,28 @@ func (g GeneratorEncodingWireSerialize) StructField(r *Result, p *Parser, field 
 }
 
 func (g GeneratorEncodingWireSerialize) Array(r *Result, p *Parser, a *Array, specName string, varName string, comments []Comment) {
-	s := Slice{Element: a.Element}
-	g.Slice(r, p, &s, specName, varName, comments)
+	const elementPrefix = "e"
+
+	if a.Size == 0 {
+		r.Printf("s.%c%s(%s(len(%s)))", unicode.ToUpper(rune(EncodingWireSliceLengthType[0])), EncodingWireSliceLengthType[1:], EncodingWireSliceLengthType, varName)
+	}
+	element := fmt.Sprintf("%s%d", elementPrefix, g.Level)
+	g.Level++
+	{
+		r.Printf("for _, %s := range %s {", element, varName)
+		r.Tabs++
+		{
+			GenerateSliceElement(g, r, p, &a.Element, specName, element, comments)
+		}
+		r.Tabs--
+		r.Line("}")
+	}
+	g.Level--
 }
 
 func (g GeneratorEncodingWireSerialize) Slice(r *Result, p *Parser, s *Slice, specName string, varName string, comments []Comment) {
-	const element = "element"
-
-	r.Printf("for _, %s := range %s {", element, varName)
-	r.Tabs++
-	{
-		GenerateSliceElement(g, r, p, &s.Element, specName, element, comments)
-	}
-	r.Tabs--
-	r.Line("}")
+	a := Array{Element: s.Element}
+	g.Array(r, p, &a, specName, varName, comments)
 }
 
 func (g GeneratorEncodingWireSerialize) Union(r *Result, p *Parser, u *Union, specName string, varName string, comments []Comment) {
@@ -84,7 +94,7 @@ func (g GeneratorEncodingWireSerialize) Union(r *Result, p *Parser, u *Union, sp
 			r.Printf("case %s:", t)
 			r.Tabs++
 			{
-				r.Printf("s.Int32(%d)", i)
+				r.Printf("s.%c%s(%d)", unicode.ToUpper(rune(EncodingWireUnionKindType[0])), EncodingWireUnionKindType[1:], i)
 				r.Printf("Serialize%sWire(s, %s%s)", t[1:], amp, varName)
 			}
 			r.Tabs--

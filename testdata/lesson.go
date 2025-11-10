@@ -5,8 +5,6 @@ type (
 	//gpp:union: *StepTest, *StepProgramming
 	Step interface{}
 
-	Steps []Step
-
 	StepCommon struct {
 		Name string
 	}
@@ -14,7 +12,7 @@ type (
 	Question struct {
 		Name           string
 		Answers        []string
-		CorrectAnswers []int
+		CorrectAnswers []int32
 	}
 	Check struct {
 		Input  string

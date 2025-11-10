@@ -15,7 +15,7 @@ const (
 	UserTypeCount
 )
 
-//gpp:generate: encoding(wire)
+//gpp:generate: fill(values), verify, encoding(json)
 type User struct {
 	RecordHeader database.RecordHeader //gpp:fill: nop
 
@@ -36,5 +36,3 @@ func NameValid(l l10n.Language, name string) error {
 func EmailValid(l l10n.Language, email string) error {
 	return nil
 }
-
-//gpp:generate: fill(values), verify, encoding(json,wire)

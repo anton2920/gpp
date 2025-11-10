@@ -2,7 +2,7 @@ package main
 
 import "github.com/anton2920/gofa/database"
 
-//gpp:generate: fill, encoding(json,wire)
+//gpp:generate: fill, encoding(json)
 type CompanyMember struct {
 	RecordHeader database.RecordHeader //gpp:fill: nop
 
