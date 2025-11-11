@@ -78,9 +78,13 @@ var (
 	_ = TypeLit(new(Struct))
 )
 
-func IsStruct(lit TypeLit) bool {
-	_, ok := lit.(*Struct)
-	return ok
+func IsPrimitive(lit TypeLit) bool {
+	switch lit.(type) {
+	case *Int, *Float, *String, *Pointer, *Map:
+		return true
+	default:
+		return false
+	}
 }
 
 func LiteralName(lit TypeLit) string {
@@ -111,7 +115,7 @@ func (i *Interface) String() string {
 }
 
 func (m *Map) String() string {
-	return "map"
+	return fmt.Sprintf("map[%s]%s", m.KeyType, m.ValueType)
 }
 
 func (f *Float) String() string {
@@ -119,7 +123,7 @@ func (f *Float) String() string {
 }
 
 func (p *Pointer) String() string {
-	return fmt.Sprintf("*%s", p.BaseType)
+	return fmt.Sprintf("*%s", p.BaseType.String())
 }
 
 func (s *Slice) String() string {

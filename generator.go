@@ -11,9 +11,9 @@ type KeySet map[string]struct{}
 
 type Generator interface {
 	Imports() []string
-	Func(specName string, varName string) string
+	Decl(t *Type, specName string, varName string) string
 
-	Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment)
+	Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool)
 
 	NamedType(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool)
 	Primitive(r *Result, p *Parser, lit TypeLit, specName string, fieldName string, castName string, varName string, comments []Comment, pointer bool)
@@ -28,21 +28,34 @@ type Generator interface {
 	Union(r *Result, p *Parser, u *Union, specName string, varName string, comments []Comment)
 }
 
-func Private(c byte) bool {
-	return (c == '_') || (unicode.IsLower(rune(c)))
-}
-
 func Generate(g Generator, r *Result, p *Parser, ts *TypeSpec) {
 	r.AddImports(g.Imports())
-	varName := VariableName(ts.Name, false)
 
-	r.Printf("\nfunc %s {", g.Func(ts.Name, varName))
-	r.Tabs++
+	{
+		t := Type{Literal: &Pointer{BaseType: Type{Name: ts.Name}}}
+		varName := VariableName(ts.Name, false)
 
-	g.Body(r, p, &ts.Type, ts.Name, varName, ts.Comments)
+		r.Printf("\nfunc %s {", g.Decl(&t, ts.Name, varName))
+		r.Tabs++
 
-	r.Tabs--
-	r.Line("}")
+		g.Body(r, p, &ts.Type, ts.Name, varName, ts.Comments, true)
+
+		r.Tabs--
+		r.Line("}")
+	}
+
+	{
+		t := Type{Literal: &Slice{Element: Type{Name: ts.Name}}}
+		varName := VariableName(ts.Name, true)
+
+		r.Printf("\nfunc %s {", g.Decl(&t, Plural(ts.Name), varName))
+		r.Tabs++
+		{
+			g.Body(r, p, &t, ts.Name, varName, ts.Comments, true)
+		}
+		r.Tabs--
+		r.Line("}")
+	}
 }
 
 func GenerateType(g Generator, r *Result, p *Parser, t *Type, specName string, fieldName string, castName string, varName string, comments []Comment, varPointer bool) {
@@ -122,6 +135,10 @@ func GenerateStructField(g Generator, r *Result, p *Parser, field *StructField, 
 	}
 }
 
+func Private(c byte) bool {
+	return (c == '_') || (unicode.IsLower(rune(c)))
+}
+
 func StructFieldSkip(g Generator, field *StructField) bool {
 	if g.StructFieldSkip(field) {
 		return true
@@ -144,7 +161,7 @@ func StructFieldSkip(g Generator, field *StructField) bool {
 func GenerateSliceElement(g Generator, r *Result, p *Parser, elem *Type, specName string, varName string, comments []Comment) {
 	if len(elem.Name) > 0 {
 		lit := p.FindTypeLit(r.Imports, strings.Or(elem.Package, r.Package), elem.Name)
-		if (lit != nil) && (!IsStruct(lit)) {
+		if (lit != nil) && (IsPrimitive(lit)) {
 			GenerateTypeLit(g, r, p, lit, specName, "", lit.String(), varName, comments, false)
 			return
 		}

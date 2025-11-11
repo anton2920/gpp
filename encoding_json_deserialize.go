@@ -11,12 +11,12 @@ func (g GeneratorEncodingJSONDeserialize) Imports() []string {
 	return []string{GOFA + "encoding/json"}
 }
 
-func (g GeneratorEncodingJSONDeserialize) Func(specName string, varName string) string {
-	return fmt.Sprintf("Deserialize%sJSON(d *json.Deserializer, %s *%s) bool", specName, varName, specName)
+func (g GeneratorEncodingJSONDeserialize) Decl(t *Type, specName string, varName string) string {
+	return fmt.Sprintf("Deserialize%sJSON(d *json.Deserializer, %s %s) bool", specName, varName, t.String())
 }
 
-func (g GeneratorEncodingJSONDeserialize) Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment) {
-	GenerateType(g, r, p, t, specName, "", LiteralName(t.Literal), varName, comments, true)
+func (g GeneratorEncodingJSONDeserialize) Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool) {
+	GenerateType(g, r, p, t, specName, "", LiteralName(t.Literal), varName, comments, pointer)
 	r.Line("return d.Error == nil")
 }
 

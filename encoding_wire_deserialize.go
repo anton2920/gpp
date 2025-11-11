@@ -13,12 +13,12 @@ func (g GeneratorEncodingWireDeserialize) Imports() []string {
 	return []string{GOFA + "encoding/wire"}
 }
 
-func (g GeneratorEncodingWireDeserialize) Func(specName string, varName string) string {
-	return fmt.Sprintf("Deserialize%sWire(d *wire.Deserializer, %s *%s)", specName, varName, specName)
+func (g GeneratorEncodingWireDeserialize) Decl(t *Type, specName string, varName string) string {
+	return fmt.Sprintf("Deserialize%sWire(d *wire.Deserializer, %s %s)", specName, varName, t.String())
 }
 
-func (g GeneratorEncodingWireDeserialize) Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment) {
-	GenerateType(g, r, p, t, specName, "", specName, varName, comments, true)
+func (g GeneratorEncodingWireDeserialize) Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool) {
+	GenerateType(g, r, p, t, specName, "", specName, varName, comments, pointer)
 }
 
 func (g GeneratorEncodingWireDeserialize) NamedType(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool) {

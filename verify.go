@@ -23,12 +23,12 @@ func (g GeneratorVerify) Imports() []string {
 	return []string{GOFA + "l10n"}
 }
 
-func (g GeneratorVerify) Func(specName string, varName string) string {
-	return fmt.Sprintf("Verify%s(l l10n.Language, %s *%s) error", specName, varName, specName)
+func (g GeneratorVerify) Decl(t *Type, specName string, varName string) string {
+	return fmt.Sprintf("Verify%s(l l10n.Language, %s *%s) error", specName, varName, t.String())
 }
 
-func (g GeneratorVerify) Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment) {
-	GenerateType(g, r, p, t, specName, "", LiteralName(t.Literal), varName, comments, true)
+func (g GeneratorVerify) Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool) {
+	GenerateType(g, r, p, t, specName, "", LiteralName(t.Literal), varName, comments, pointer)
 	r.Line("return nil")
 }
 

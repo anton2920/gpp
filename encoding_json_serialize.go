@@ -11,12 +11,12 @@ func (g GeneratorEncodingJSONSerialize) Imports() []string {
 	return []string{GOFA + "encoding/json"}
 }
 
-func (g GeneratorEncodingJSONSerialize) Func(specName string, varName string) string {
-	return fmt.Sprintf("Serialize%sJSON(s *json.Serializer, %s *%s)", specName, varName, specName)
+func (g GeneratorEncodingJSONSerialize) Decl(t *Type, specName string, varName string) string {
+	return fmt.Sprintf("Serialize%sJSON(s *json.Serializer, %s %s)", specName, varName, t.String())
 }
 
-func (g GeneratorEncodingJSONSerialize) Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment) {
-	GenerateType(g, r, p, t, specName, "", LiteralName(t.Literal), varName, comments, true)
+func (g GeneratorEncodingJSONSerialize) Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool) {
+	GenerateType(g, r, p, t, specName, "", LiteralName(t.Literal), varName, comments, pointer)
 }
 
 func (g GeneratorEncodingJSONSerialize) NamedType(r *Result, p *Parser, t *Type, specName string, varName string, _ []Comment, pointer bool) {

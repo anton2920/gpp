@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"go/token"
+
+	"github.com/anton2920/gofa/strings"
 )
 
 type Type struct {
@@ -25,6 +27,13 @@ type TypeSpec struct {
 	Alias    bool
 }
 
+func Plural(name string) string {
+	if strings.EndsWith(name, "y") {
+		return name[:len(name)-1] + "ies"
+	}
+	return name + "s"
+}
+
 func (t *Type) PackagePrefix() string {
 	if len(t.Package) > 0 {
 		return t.Package + "."
@@ -33,8 +42,8 @@ func (t *Type) PackagePrefix() string {
 }
 
 func (t *Type) String() string {
-	if t.Literal != nil {
-		return t.Literal.String()
+	if litName := LiteralName(t.Literal); len(litName) > 0 {
+		return litName
 	}
 
 	var buf bytes.Buffer

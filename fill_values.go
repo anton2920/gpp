@@ -13,12 +13,12 @@ func (g GeneratorFillValues) Imports() []string {
 	return []string{GOFA + "net/url"}
 }
 
-func (g GeneratorFillValues) Func(specName string, varName string) string {
-	return fmt.Sprintf("Fill%sFromValues(vs url.Values, %s *%s)", specName, varName, specName)
+func (g GeneratorFillValues) Decl(t *Type, specName string, varName string) string {
+	return fmt.Sprintf("Fill%sFromValues(vs url.Values, %s %s)", specName, varName, t.String())
 }
 
-func (g GeneratorFillValues) Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment) {
-	GenerateType(g, r, p, t, specName, "", LiteralName(t.Literal), varName, comments, true)
+func (g GeneratorFillValues) Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool) {
+	GenerateType(g, r, p, t, specName, "", LiteralName(t.Literal), varName, comments, pointer)
 }
 
 func (g GeneratorFillValues) NamedType(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool) {
