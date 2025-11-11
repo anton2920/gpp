@@ -99,6 +99,9 @@ func GenerateStructField(g Generator, r *Result, p *Parser, field *StructField, 
 
 func GenerateStructFields(g Generator, r *Result, p *Parser, fields []StructField, specName string, varName string, forbiddenFields KeySet) {
 	currentFields := make(KeySet)
+	for field := range forbiddenFields {
+		currentFields[field] = struct{}{}
+	}
 	for _, field := range fields {
 		if SkipField(&field) {
 			continue
@@ -116,7 +119,7 @@ func GenerateStructFields(g Generator, r *Result, p *Parser, fields []StructFiel
 		name := fmt.Sprintf("%s.%s", varName, fieldName)
 
 		var lit TypeLit
-		if (len(field.Name) == 0) && (len(field.Type.Name) > 0) {
+		if (field.Type.Literal == nil) && (len(field.Name) == 0) && (len(field.Type.Name) > 0) {
 			lit = p.FindTypeLit(r.Imports, strings.Or(field.Type.Package, r.Package), field.Type.Name)
 			if s, ok := lit.(*Struct); ok {
 				for i := 0; i < len(s.Fields); i++ {
@@ -132,6 +135,9 @@ func GenerateStructFields(g Generator, r *Result, p *Parser, fields []StructFiel
 
 		if _, ok := forbiddenFields[fieldName]; !ok {
 			g.StructField(r, p, &field, lit, specName, fieldName, name)
+			if forbiddenFields != nil {
+				forbiddenFields[fieldName] = struct{}{}
+			}
 		}
 	}
 }

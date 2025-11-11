@@ -14,7 +14,7 @@ type File struct {
 	Specs   []TypeSpec
 }
 
-func (p *Parser) File(f *token.File, file *File) bool {
+func (p *Parser) File(f *token.File, file *File, processedPackages map[string]struct{}, recursive bool) bool {
 	src, err := ReadEntireFile(f.Name())
 	if err != nil {
 		p.Error = fmt.Errorf("failed to read file %q: %v", f.Name(), err)
@@ -55,6 +55,22 @@ func (p *Parser) File(f *token.File, file *File) bool {
 			done = true
 		}
 		p.Next()
+	}
+
+	if recursive {
+		var paths []string
+		for pkg := range p.ReferencedPackages {
+			packagePath := file.Imports.PackagePath(pkg)
+			if _, ok := processedPackages[packagePath]; !ok {
+				paths = append(paths, ResolvePackagePath(packagePath))
+				processedPackages[packagePath] = struct{}{}
+			}
+		}
+		if err := PopulateFileSet(p.FileSet, paths); err != nil {
+			p.Error = err
+			return false
+		}
+		p.ReferencedPackages = make(map[string]struct{})
 	}
 
 	return true

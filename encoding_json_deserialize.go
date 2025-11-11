@@ -85,6 +85,9 @@ func (g GeneratorEncodingJSONDeserialize) Slice(r *Result, p *Parser, s *Slice, 
 	r.Tabs++
 	{
 		const element = "element"
+		if len(s.Element.Package) > 0 {
+			r.AddImport(s.Element.Package)
+		}
 		r.Printf("var %s %s", element, s.Element.String())
 		GenerateSliceElement(g, r, p, &s.Element, specName, "element", comments)
 		r.Printf("%s = append(%s, %s)", varName, varName, element)

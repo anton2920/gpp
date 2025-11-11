@@ -11,7 +11,8 @@ import (
 type Parser struct {
 	Lexer
 
-	Packages map[string][]File
+	Packages           map[string][]File
+	ReferencedPackages map[string]struct{}
 
 	Error error
 }
@@ -21,6 +22,7 @@ func NewParser(fs *token.FileSet) Parser {
 
 	p.FileSet = fs
 	p.Packages = make(map[string][]File)
+	p.ReferencedPackages = make(map[string]struct{})
 
 	return p
 }
@@ -95,7 +97,7 @@ func (p *Parser) StringLit(s *string) bool {
 }
 
 func (p *Parser) FindTypeLit(is Imports, pkg string, typeName string) TypeLit {
-	pkgPath := is.PackagePath(pkg)
+	pkgPath := is.PackageName(pkg)
 
 	parsedFiles := p.Packages[pkgPath]
 	for _, parsedFile := range parsedFiles {

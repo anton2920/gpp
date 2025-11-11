@@ -62,7 +62,7 @@ func (p *Parser) Type(t *Type) bool {
 	if p.Ident(&ident) {
 		if p.Token(token.PERIOD) {
 			t.Package = ident
-			ReferencedPackages[t.Package] = struct{}{}
+			p.ReferencedPackages[t.Package] = struct{}{}
 
 			if p.Ident(&t.Name) {
 				if p.Curr().GoToken == token.LBRACK {

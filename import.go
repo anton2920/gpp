@@ -26,11 +26,19 @@ func (is Imports) Less(i int, j int) bool {
 }
 func (is Imports) Swap(i int, j int) { is[i], is[j] = is[j], is[i] }
 
-func (is Imports) PackagePath(pkg string) string {
+func (is Imports) PackageName(pkg string) string {
 	for _, i := range is {
 		if i.QualifiedName == pkg {
-			pkg = filepath.Base(i.Path)
-			break
+			return filepath.Base(i.Path)
+		}
+	}
+	return pkg
+}
+
+func (is Imports) PackagePath(pkg string) string {
+	for _, i := range is {
+		if (i.QualifiedName == pkg) || (strings.EndsWith(i.Path, pkg)) {
+			return i.Path
 		}
 	}
 	return pkg

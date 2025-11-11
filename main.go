@@ -14,10 +14,6 @@ import (
 
 const GOFA = "github.com/anton2920/gofa/"
 
-var (
-	ReferencedPackages = make(map[string]struct{})
-)
-
 func ReadEntireFile(filename string) ([]byte, error) {
 	f, err := os.Open(filename)
 	if err != nil {
@@ -134,6 +130,7 @@ func ResolvePackagePath(path string) string {
 
 func main() {
 	listFiles := flag.Bool("l", false, "list files which gpp processed")
+	recursive := flag.Bool("r", false, "parse referenced imported packages")
 	flag.Usage = Usage
 	flag.Parse()
 
@@ -149,10 +146,11 @@ func main() {
 		Fatalf("Failed to process arguments: %v", err)
 	}
 
+	processedPackages := make(map[string]struct{})
 	p.FileSet.Iterate(func(f *token.File) bool {
 		var file File
 
-		p.File(f, &file)
+		p.File(f, &file, processedPackages, *recursive)
 		if p.Error != nil {
 			Errorf("Failed to parse file %q: %v", f.Name(), p.Error)
 			return false

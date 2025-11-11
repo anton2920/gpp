@@ -17,7 +17,7 @@ const (
 
 //gpp:generate: fill(values), verify, encoding(json)
 type User struct {
-	RecordHeader database.RecordHeader //gpp:fill: nop
+	database.RecordHeader //gpp:fill: nop
 
 	FirstName string //gpp:verify: MinLength=1, MaxLength=45, Func=NameValid
 	LastName  string //gpp:verify: MinLength=1, MaxLength=45, Func=NameValid

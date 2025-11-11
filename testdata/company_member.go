@@ -4,7 +4,7 @@ import "github.com/anton2920/gofa/database"
 
 //gpp:generate: fill, encoding(json)
 type CompanyMember struct {
-	RecordHeader database.RecordHeader //gpp:fill: nop
+	database.RecordHeader //gpp:fill: nop
 
 	// Company
 	User //gpp:fill: nop
