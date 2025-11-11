@@ -38,6 +38,11 @@ type Interface struct {
 	Functions []Func
 }
 
+type Map struct {
+	KeyType   Type
+	ValueType Type
+}
+
 type Pointer struct {
 	BaseType Type
 }
@@ -103,6 +108,10 @@ func (i *Int) String() string {
 
 func (i *Interface) String() string {
 	return "interface"
+}
+
+func (m *Map) String() string {
+	return "map"
 }
 
 func (f *Float) String() string {
@@ -194,6 +203,35 @@ func (p *Parser) Int(i *Int) bool {
 		return true
 	}
 
+	return false
+}
+
+func (p *Parser) Interface(i *Interface) bool {
+	if p.Token(token.INTERFACE) {
+		if p.Token(token.LBRACE) {
+			for p.Curr().GoToken != token.RBRACE {
+				p.Next()
+			}
+			//fmt.Printf("%#v\n", i)
+			p.Next()
+			return true
+		}
+	}
+	return false
+}
+
+func (p *Parser) Map(m *Map) bool {
+	if p.Token(token.MAP) {
+		if p.Token(token.LBRACK) {
+			if p.Type(&m.KeyType) {
+				if p.Token(token.RBRACK) {
+					if p.Type(&m.ValueType) {
+						return true
+					}
+				}
+			}
+		}
+	}
 	return false
 }
 
@@ -301,20 +339,6 @@ func (p *Parser) Struct(s *Struct) bool {
 	return false
 }
 
-func (p *Parser) Interface(i *Interface) bool {
-	if p.Token(token.INTERFACE) {
-		if p.Token(token.LBRACE) {
-			for p.Curr().GoToken != token.RBRACE {
-				p.Next()
-			}
-			//fmt.Printf("%#v\n", i)
-			p.Next()
-			return true
-		}
-	}
-	return false
-}
-
 func (p *Parser) TypeLit(tl *TypeLit) bool {
 	pos := p.Position
 
@@ -343,6 +367,13 @@ func (p *Parser) TypeLit(tl *TypeLit) bool {
 			}
 			return false
 		}
+	case token.INTERFACE:
+		i := new(Interface)
+		if p.Interface(i) {
+			*tl = i
+			return true
+		}
+		return false
 	case token.LBRACK:
 		switch p.Next().GoToken {
 		case token.INT:
@@ -362,6 +393,13 @@ func (p *Parser) TypeLit(tl *TypeLit) bool {
 			}
 			return false
 		}
+	case token.MAP:
+		m := new(Map)
+		if p.Map(m) {
+			*tl = m
+			return true
+		}
+		return false
 	case token.MUL:
 		ptr := new(Pointer)
 		if p.Pointer(ptr) {
@@ -373,13 +411,6 @@ func (p *Parser) TypeLit(tl *TypeLit) bool {
 		s := new(Struct)
 		if p.Struct(s) {
 			*tl = s
-			return true
-		}
-		return false
-	case token.INTERFACE:
-		i := new(Interface)
-		if p.Interface(i) {
-			*tl = i
 			return true
 		}
 		return false
