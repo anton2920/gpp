@@ -130,7 +130,7 @@ func ResolvePackagePath(path string) string {
 
 func main() {
 	listFiles := flag.Bool("l", false, "list files which gpp processed")
-	recursive := flag.Bool("r", false, "parse referenced imported packages")
+	recursive := flag.Bool("r", false, "process referenced imported packages")
 	flag.Usage = Usage
 	flag.Parse()
 

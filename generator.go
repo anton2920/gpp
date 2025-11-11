@@ -12,7 +12,8 @@ type KeySet map[string]struct{}
 type Generator interface {
 	Imports() []string
 	Func(specName string, varName string) string
-	Return() string
+
+	Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment)
 
 	NamedType(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool)
 	Primitive(r *Result, p *Parser, lit TypeLit, specName string, fieldName string, castName string, varName string, comments []Comment, pointer bool)
@@ -38,23 +39,17 @@ func Generate(g Generator, r *Result, p *Parser, ts *TypeSpec) {
 	r.Printf("\nfunc %s {", g.Func(ts.Name, varName))
 	r.Tabs++
 
-	GenerateType(g, r, p, &ts.Type, ts.Name, varName, ts.Comments, true)
-
-	if ret := g.Return(); len(ret) > 0 {
-		r.Printf("return %s", ret)
-	}
+	g.Body(r, p, &ts.Type, ts.Name, varName, ts.Comments)
 
 	r.Tabs--
 	r.Line("}")
 }
 
-func GenerateType(g Generator, r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, varPointer bool) {
+func GenerateType(g Generator, r *Result, p *Parser, t *Type, specName string, fieldName string, castName string, varName string, comments []Comment, varPointer bool) {
 	if t.Literal != nil {
-		GenerateTypeLit(g, r, p, t.Literal, specName, "", t.Literal.String(), varName, comments, varPointer)
+		GenerateTypeLit(g, r, p, t.Literal, specName, fieldName, castName, varName, comments, varPointer)
 	} else {
-		if len(t.Package) > 0 {
-			r.AddImport(t.Package)
-		}
+		r.AddImport(t.Package)
 		g.NamedType(r, p, t, specName, varName, comments, varPointer)
 	}
 }
@@ -122,10 +117,8 @@ func GenerateStructFields(g Generator, r *Result, p *Parser, fields []StructFiel
 func GenerateStructField(g Generator, r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName string, castName string, varName string, comments []Comment) {
 	if lit != nil {
 		GenerateTypeLit(g, r, p, lit, specName, fieldName, castName, varName, field.Comments, false)
-	} else if field.Type.Name == "" {
-		GenerateTypeLit(g, r, p, field.Type.Literal, specName, fieldName, "", varName, field.Comments, false)
 	} else {
-		GenerateType(g, r, p, &field.Type, specName, varName, field.Comments, false)
+		GenerateType(g, r, p, &field.Type, specName, fieldName, "", varName, field.Comments, false)
 	}
 }
 
@@ -156,7 +149,7 @@ func GenerateSliceElement(g Generator, r *Result, p *Parser, elem *Type, specNam
 			return
 		}
 	}
-	GenerateType(g, r, p, elem, specName, varName, comments, false)
+	GenerateType(g, r, p, elem, specName, "", "", varName, comments, false)
 }
 
 func GeneratorsAll() []Generator {

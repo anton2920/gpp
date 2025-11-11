@@ -14,11 +14,11 @@ func (g GeneratorEncodingWireDeserialize) Imports() []string {
 }
 
 func (g GeneratorEncodingWireDeserialize) Func(specName string, varName string) string {
-	return fmt.Sprintf("Deserialize%sWire(d *wire.Deserializer, %s *%s) bool", specName, varName, specName)
+	return fmt.Sprintf("Deserialize%sWire(d *wire.Deserializer, %s *%s)", specName, varName, specName)
 }
 
-func (g GeneratorEncodingWireDeserialize) Return() string {
-	return "d.Error == nil"
+func (g GeneratorEncodingWireDeserialize) Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment) {
+	GenerateType(g, r, p, t, specName, "", specName, varName, comments, true)
 }
 
 func (g GeneratorEncodingWireDeserialize) NamedType(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool) {
@@ -26,17 +26,16 @@ func (g GeneratorEncodingWireDeserialize) NamedType(r *Result, p *Parser, t *Typ
 }
 
 func (g GeneratorEncodingWireDeserialize) Primitive(r *Result, p *Parser, lit TypeLit, specName string, fieldName string, castName string, varName string, comments []Comment, pointer bool) {
-	var amp string
-	if !pointer {
-		amp = "&"
+	var star string
+	if pointer {
+		star = "*"
 	}
 
 	litName := lit.String()
-	if (len(castName) == 0) || (litName == castName) {
-		r.Printf("d.%c%s(%s%s)", unicode.ToUpper(rune(litName[0])), litName[1:], amp, varName)
+	if len(castName) == 0 {
+		r.Printf("%s%s = d.%c%s()", star, varName, unicode.ToUpper(rune(litName[0])), litName[1:])
 	} else {
-		r.AddImport("unsafe")
-		r.Printf("d.%c%s((*%s)(unsafe.Pointer(%s%s)))", unicode.ToUpper(rune(litName[0])), litName[1:], castName, amp, varName)
+		r.Printf("%s%s = %s(d.%c%s())", star, varName, castName, unicode.ToUpper(rune(litName[0])), litName[1:])
 	}
 }
 
@@ -45,7 +44,8 @@ func (g GeneratorEncodingWireDeserialize) Struct(r *Result, p *Parser, s *Struct
 }
 
 func (g GeneratorEncodingWireDeserialize) StructField(r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName string, varName string) {
-	GenerateStructField(g, r, p, field, lit, specName, fieldName, LiteralName(lit), varName, field.Comments)
+	r.AddImport(field.Type.Package)
+	GenerateStructField(g, r, p, field, lit, specName, fieldName, field.Type.String(), varName, field.Comments)
 }
 
 func (g GeneratorEncodingWireDeserialize) StructFieldSkip(field *StructField) bool {
@@ -53,33 +53,20 @@ func (g GeneratorEncodingWireDeserialize) StructFieldSkip(field *StructField) bo
 }
 
 func (g GeneratorEncodingWireDeserialize) Array(r *Result, p *Parser, a *Array, specName string, varName string, comments []Comment) {
-	const elementPrefix = "e"
-
-	element := fmt.Sprintf("%s%d", elementPrefix, g.Level)
+	i := fmt.Sprintf("i%d", g.Level)
 	g.Level++
-	{
-		r.Line("{")
-		r.Tabs++
-		{
-			if a.Size == 0 {
-				r.Printf("var n %s", EncodingWireSliceLengthType)
-				r.Printf("d.%c%s(&n)", unicode.ToUpper(rune(EncodingWireSliceLengthType[0])), EncodingWireSliceLengthType[1:])
-				r.Printf("%s = make([]%s, n)", varName, a.Element.String())
-			}
-			r.Printf("for i := 0; i < len(%s); i++ {", varName)
-			r.Tabs++
-			{
-				r.Printf("var %s %s", element, a.Element.String())
-				GenerateSliceElement(g, r, p, &a.Element, specName, element, comments)
-				r.Printf("%s[i] = %s", varName, element)
 
-			}
-			r.Tabs--
-			r.Line("}")
-		}
-		r.Tabs--
-		r.Line("}")
+	if a.Size == 0 {
+		r.Printf("%s = make([]%s, d.%c%s())", varName, a.Element.String(), unicode.ToUpper(rune(EncodingWireSliceLengthType[0])), EncodingWireSliceLengthType[1:])
 	}
+	r.Printf("for %s := 0; %s < len(%s); %s++ {", i, i, varName, i)
+	r.Tabs++
+	{
+		GenerateSliceElement(g, r, p, &a.Element, specName, fmt.Sprintf("%s[%s]", varName, i), comments)
+	}
+	r.Tabs--
+	r.Line("}")
+
 	g.Level--
 }
 
@@ -90,11 +77,8 @@ func (g GeneratorEncodingWireDeserialize) Slice(r *Result, p *Parser, s *Slice, 
 
 func (g GeneratorEncodingWireDeserialize) Union(r *Result, p *Parser, u *Union, specName string, varName string, comments []Comment) {
 	const value = "value"
-	const typ = "typ"
 
-	r.Printf("var %s %s", typ, EncodingWireUnionKindType)
-	r.Printf("d.%c%s(&%s)", unicode.ToUpper(rune(EncodingWireUnionKindType[0])), EncodingWireUnionKindType[1:], typ)
-	r.Printf("switch typ {")
+	r.Printf("switch d.%c%s() {", unicode.ToUpper(rune(EncodingWireUnionKindType[0])), EncodingWireUnionKindType[1:])
 	{
 		for i, t := range u.Types {
 			var amp string

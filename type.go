@@ -27,7 +27,7 @@ type TypeSpec struct {
 
 func (t *Type) PackagePrefix() string {
 	if len(t.Package) > 0 {
-		return t.Package+"."
+		return t.Package + "."
 	}
 	return ""
 }

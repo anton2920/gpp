@@ -17,8 +17,8 @@ func (g GeneratorEncodingWireSerialize) Func(specName string, varName string) st
 	return fmt.Sprintf("Serialize%sWire(s *wire.Serializer, %s *%s)", specName, varName, specName)
 }
 
-func (g GeneratorEncodingWireSerialize) Return() string {
-	return ""
+func (g GeneratorEncodingWireSerialize) Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment) {
+	GenerateType(g, r, p, t, specName, "", LiteralName(t.Literal), varName, comments, true)
 }
 
 func (g GeneratorEncodingWireSerialize) NamedType(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool) {
@@ -32,7 +32,7 @@ func (g GeneratorEncodingWireSerialize) Primitive(r *Result, p *Parser, lit Type
 	}
 
 	litName := lit.String()
-	if (len(castName) == 0) || (litName == castName) {
+	if len(castName) == 0 {
 		r.Printf("s.%c%s(%s%s)", unicode.ToUpper(rune(litName[0])), litName[1:], star, varName)
 	} else {
 		r.Printf("s.%c%s(%s(%s%s))", unicode.ToUpper(rune(litName[0])), litName[1:], castName, star, varName)
@@ -52,22 +52,21 @@ func (g GeneratorEncodingWireSerialize) StructFieldSkip(field *StructField) bool
 }
 
 func (g GeneratorEncodingWireSerialize) Array(r *Result, p *Parser, a *Array, specName string, varName string, comments []Comment) {
-	const elementPrefix = "e"
+	i := fmt.Sprintf("i%d", g.Level)
+	g.Level++
 
 	if a.Size == 0 {
 		r.Printf("s.%c%s(%s(len(%s)))", unicode.ToUpper(rune(EncodingWireSliceLengthType[0])), EncodingWireSliceLengthType[1:], EncodingWireSliceLengthType, varName)
 	}
-	element := fmt.Sprintf("%s%d", elementPrefix, g.Level)
-	g.Level++
+
+	r.Printf("for %s := 0; %s < len(%s); %s++ {", i, i, varName, i)
+	r.Tabs++
 	{
-		r.Printf("for _, %s := range %s {", element, varName)
-		r.Tabs++
-		{
-			GenerateSliceElement(g, r, p, &a.Element, specName, element, comments)
-		}
-		r.Tabs--
-		r.Line("}")
+		GenerateSliceElement(g, r, p, &a.Element, specName, fmt.Sprintf("%s[%s]", varName, i), comments)
 	}
+	r.Tabs--
+	r.Line("}")
+
 	g.Level--
 }
 

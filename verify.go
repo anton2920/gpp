@@ -27,8 +27,9 @@ func (g GeneratorVerify) Func(specName string, varName string) string {
 	return fmt.Sprintf("Verify%s(l l10n.Language, %s *%s) error", specName, varName, specName)
 }
 
-func (g GeneratorVerify) Return() string {
-	return "nil"
+func (g GeneratorVerify) Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment) {
+	GenerateType(g, r, p, t, specName, "", LiteralName(t.Literal), varName, comments, true)
+	r.Line("return nil")
 }
 
 func (g GeneratorVerify) NamedType(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool) {

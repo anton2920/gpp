@@ -17,8 +17,8 @@ func (g GeneratorFillValues) Func(specName string, varName string) string {
 	return fmt.Sprintf("Fill%sFromValues(vs url.Values, %s *%s)", specName, varName, specName)
 }
 
-func (g GeneratorFillValues) Return() string {
-	return ""
+func (g GeneratorFillValues) Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment) {
+	GenerateType(g, r, p, t, specName, "", LiteralName(t.Literal), varName, comments, true)
 }
 
 func (g GeneratorFillValues) NamedType(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool) {

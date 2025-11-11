@@ -52,7 +52,7 @@ func BenchmarkSerializeStepWire(b *testing.B) {
 		SerializeStepWire(&s, &step)
 	}
 
-	//fmt.Printf("Wire size = %d\n", len(s.Buffer))
+	// fmt.Printf("Wire size = %d\n", len(s.Buffer))
 }
 
 func BenchmarkSerializeStepGob(b *testing.B) {
@@ -67,5 +67,5 @@ func BenchmarkSerializeStepGob(b *testing.B) {
 		enc.Encode(step)
 	}
 
-	//fmt.Printf("Gob size = %d\n", buf.Len())
+	// fmt.Printf("Gob size = %d\n", buf.Len())
 }

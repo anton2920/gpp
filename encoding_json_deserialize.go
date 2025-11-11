@@ -15,8 +15,9 @@ func (g GeneratorEncodingJSONDeserialize) Func(specName string, varName string) 
 	return fmt.Sprintf("Deserialize%sJSON(d *json.Deserializer, %s *%s) bool", specName, varName, specName)
 }
 
-func (g GeneratorEncodingJSONDeserialize) Return() string {
-	return "d.Error == nil"
+func (g GeneratorEncodingJSONDeserialize) Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment) {
+	GenerateType(g, r, p, t, specName, "", LiteralName(t.Literal), varName, comments, true)
+	r.Line("return d.Error == nil")
 }
 
 func (g GeneratorEncodingJSONDeserialize) NamedType(r *Result, p *Parser, t *Type, specName string, varName string, _ []Comment, pointer bool) {

@@ -25,6 +25,10 @@ type Result struct {
 const GeneratedSuffix = "_gpp"
 
 func (r *Result) AddImport(s string) {
+	if len(s) == 0 {
+		return
+	}
+
 	var found *Import
 	for i := 0; i < len(r.Imports); i++ {
 		if (r.Imports[i].QualifiedName == s) || (strings.EndsWith(r.Imports[i].Path, s)) {

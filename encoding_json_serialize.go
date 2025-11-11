@@ -15,8 +15,8 @@ func (g GeneratorEncodingJSONSerialize) Func(specName string, varName string) st
 	return fmt.Sprintf("Serialize%sJSON(s *json.Serializer, %s *%s)", specName, varName, specName)
 }
 
-func (g GeneratorEncodingJSONSerialize) Return() string {
-	return ""
+func (g GeneratorEncodingJSONSerialize) Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment) {
+	GenerateType(g, r, p, t, specName, "", LiteralName(t.Literal), varName, comments, true)
 }
 
 func (g GeneratorEncodingJSONSerialize) NamedType(r *Result, p *Parser, t *Type, specName string, varName string, _ []Comment, pointer bool) {
