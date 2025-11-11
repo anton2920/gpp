@@ -58,6 +58,10 @@ func (g GeneratorEncodingWireDeserialize) StructField(r *Result, p *Parser, fiel
 	GenerateStructField(g, r, p, field, lit, specName, fieldName, LiteralName(lit), varName, field.Comments)
 }
 
+func (g GeneratorEncodingWireDeserialize) StructFieldSkip(field *StructField) bool {
+	return false
+}
+
 func (g GeneratorEncodingWireDeserialize) Array(r *Result, p *Parser, a *Array, specName string, varName string, comments []Comment) {
 	const elementPrefix = "e"
 

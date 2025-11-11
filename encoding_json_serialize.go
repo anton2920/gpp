@@ -54,12 +54,12 @@ func (g GeneratorEncodingJSONSerialize) Struct(r *Result, p *Parser, s *Struct, 
 }
 
 func (g GeneratorEncodingJSONSerialize) StructField(r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName, varName string) {
-	if field.Tag == `json:"-"` {
-		return
-	}
-
 	r.Printf("s.Key(`%s`)", fieldName)
 	GenerateStructField(g, r, p, field, lit, specName, fieldName, LiteralName(lit), varName, field.Comments)
+}
+
+func (g GeneratorEncodingJSONSerialize) StructFieldSkip(field *StructField) bool {
+	return JSONStructFieldSkip(field)
 }
 
 func (g GeneratorEncodingJSONSerialize) Array(r *Result, p *Parser, a *Array, specName string, varName string, comments []Comment) {

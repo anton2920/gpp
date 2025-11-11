@@ -83,14 +83,18 @@ func (g GeneratorFillValues) Struct(r *Result, p *Parser, s *Struct, specName st
 }
 
 func (g GeneratorFillValues) StructField(r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName string, varName string) {
+	GenerateStructField(g, r, p, field, lit, specName, fieldName, field.Type.Name, varName, field.Comments)
+}
+
+func (g GeneratorFillValues) StructFieldSkip(field *StructField) bool {
 	for _, comment := range field.Comments {
 		if fc, ok := comment.(FillComment); ok {
 			if fc.NOP {
-				return
+				return true
 			}
 		}
 	}
-	GenerateStructField(g, r, p, field, lit, specName, fieldName, field.Type.Name, varName, field.Comments)
+	return false
 }
 
 func (g GeneratorFillValues) Array(r *Result, p *Parser, a *Array, specName string, varName string, comments []Comment) {

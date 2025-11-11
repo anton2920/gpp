@@ -144,6 +144,10 @@ func (g GeneratorVerify) StructField(r *Result, p *Parser, field *StructField, l
 	}
 }
 
+func (g GeneratorVerify) StructFieldSkip(field *StructField) bool {
+	return false
+}
+
 func (g GeneratorVerify) Array(r *Result, p *Parser, a *Array, specName string, varName string, comments []Comment) {
 }
 

@@ -64,16 +64,16 @@ func (g GeneratorEncodingJSONDeserialize) Struct(r *Result, p *Parser, s *Struct
 }
 
 func (g GeneratorEncodingJSONDeserialize) StructField(r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName string, varName string) {
-	if field.Tag == `json:"-"` {
-		return
-	}
-
 	r.Printf("case \"%s\":", fieldName)
 	r.Tabs++
 	{
 		GenerateStructField(g, r, p, field, lit, specName, fieldName, LiteralName(lit), varName, field.Comments)
 	}
 	r.Tabs--
+}
+
+func (g GeneratorEncodingJSONDeserialize) StructFieldSkip(field *StructField) bool {
+	return JSONStructFieldSkip(field)
 }
 
 func (g GeneratorEncodingJSONDeserialize) Array(r *Result, p *Parser, a *Array, specName string, varName string, comments []Comment) {

@@ -19,6 +19,7 @@ type Generator interface {
 
 	Struct(r *Result, p *Parser, s *Struct, specName string, varName string, comments []Comment)
 	StructField(r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName string, varName string)
+	StructFieldSkip(field *StructField) bool
 
 	Array(r *Result, p *Parser, a *Array, specName string, varName string, comments []Comment)
 	Slice(r *Result, p *Parser, s *Slice, specName string, varName string, comments []Comment)
@@ -73,37 +74,13 @@ func GenerateTypeLit(g Generator, r *Result, p *Parser, lit TypeLit, specName st
 	}
 }
 
-func SkipField(field *StructField) bool {
-	if len(field.Name) == 0 {
-		/* struct { myType } */
-		if (len(field.Type.Name) > 0) && (Private(field.Type.Name[0])) {
-			return true
-		}
-		/* struct { int } */
-		if (field.Type.Literal != nil) && (Private(field.Type.Literal.String()[0])) {
-			return true
-		}
-	}
-	return false
-}
-
-func GenerateStructField(g Generator, r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName string, castName string, varName string, comments []Comment) {
-	if lit != nil {
-		GenerateTypeLit(g, r, p, lit, specName, fieldName, castName, varName, field.Comments, false)
-	} else if field.Type.Name == "" {
-		GenerateTypeLit(g, r, p, field.Type.Literal, specName, fieldName, "", varName, field.Comments, false)
-	} else {
-		GenerateType(g, r, p, &field.Type, specName, varName, field.Comments, false)
-	}
-}
-
 func GenerateStructFields(g Generator, r *Result, p *Parser, fields []StructField, specName string, varName string, forbiddenFields KeySet) {
 	currentFields := make(KeySet)
 	for field := range forbiddenFields {
 		currentFields[field] = struct{}{}
 	}
 	for _, field := range fields {
-		if SkipField(&field) {
+		if StructFieldSkip(g, &field) {
 			continue
 		}
 		fieldName := strings.Or(field.Name, field.Type.Name)
@@ -111,7 +88,7 @@ func GenerateStructFields(g Generator, r *Result, p *Parser, fields []StructFiel
 	}
 
 	for _, field := range fields {
-		if SkipField(&field) {
+		if StructFieldSkip(g, &field) {
 			continue
 		}
 
@@ -142,6 +119,35 @@ func GenerateStructFields(g Generator, r *Result, p *Parser, fields []StructFiel
 	}
 }
 
+func GenerateStructField(g Generator, r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName string, castName string, varName string, comments []Comment) {
+	if lit != nil {
+		GenerateTypeLit(g, r, p, lit, specName, fieldName, castName, varName, field.Comments, false)
+	} else if field.Type.Name == "" {
+		GenerateTypeLit(g, r, p, field.Type.Literal, specName, fieldName, "", varName, field.Comments, false)
+	} else {
+		GenerateType(g, r, p, &field.Type, specName, varName, field.Comments, false)
+	}
+}
+
+func StructFieldSkip(g Generator, field *StructField) bool {
+	if g.StructFieldSkip(field) {
+		return true
+	}
+
+	if len(field.Name) == 0 {
+		/* struct { myType } */
+		if (len(field.Type.Name) > 0) && (Private(field.Type.Name[0])) {
+			return true
+		}
+		/* struct { int } */
+		if (field.Type.Literal != nil) && (Private(field.Type.Literal.String()[0])) {
+			return true
+		}
+	}
+
+	return false
+}
+
 func GenerateSliceElement(g Generator, r *Result, p *Parser, elem *Type, specName string, varName string, comments []Comment) {
 	if len(elem.Name) > 0 {
 		lit := p.FindTypeLit(r.Imports, strings.Or(elem.Package, r.Package), elem.Name)
@@ -151,10 +157,6 @@ func GenerateSliceElement(g Generator, r *Result, p *Parser, elem *Type, specNam
 		}
 	}
 	GenerateType(g, r, p, elem, specName, varName, comments, false)
-}
-
-func GenerateUnion(g Generator, r *Result, p *Parser) {
-
 }
 
 func GeneratorsAll() []Generator {
