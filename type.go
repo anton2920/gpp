@@ -25,6 +25,13 @@ type TypeSpec struct {
 	Alias    bool
 }
 
+func (t *Type) PackagePrefix() string {
+	if len(t.Package) > 0 {
+		return t.Package+"."
+	}
+	return ""
+}
+
 func (t *Type) String() string {
 	if t.Literal != nil {
 		return t.Literal.String()
@@ -32,10 +39,7 @@ func (t *Type) String() string {
 
 	var buf bytes.Buffer
 
-	if len(t.Package) > 0 {
-		buf.WriteString(t.Package)
-		buf.WriteRune('.')
-	}
+	buf.WriteString(t.PackagePrefix())
 	buf.WriteString(t.Name)
 
 	if len(t.Args) > 0 {

@@ -22,17 +22,7 @@ func (g GeneratorEncodingWireDeserialize) Return() string {
 }
 
 func (g GeneratorEncodingWireDeserialize) NamedType(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool) {
-	tabs := r.Tabs
-
-	if len(t.Package) > 0 {
-		r.AddImport(t.Package)
-		r.String(t.Package)
-		r.Tabs = 0
-		r.Rune('.')
-	}
-
-	r.Printf("Deserialize%sWire(d, &%s)", t.Name, varName)
-	r.Tabs = tabs
+	r.Printf("%sDeserialize%sWire(d, &%s)", t.PackagePrefix(), t.Name, varName)
 }
 
 func (g GeneratorEncodingWireDeserialize) Primitive(r *Result, p *Parser, lit TypeLit, specName string, fieldName string, castName string, varName string, comments []Comment, pointer bool) {

@@ -20,17 +20,7 @@ func (g GeneratorEncodingJSONDeserialize) Return() string {
 }
 
 func (g GeneratorEncodingJSONDeserialize) NamedType(r *Result, p *Parser, t *Type, specName string, varName string, _ []Comment, pointer bool) {
-	tabs := r.Tabs
-
-	if len(t.Package) > 0 {
-		r.AddImport(t.Package)
-		r.String(t.Package)
-		r.Tabs = 0
-		r.Rune('.')
-	}
-
-	r.Printf("Deserialize%sJSON(d, &%s)", t.Name, varName)
-	r.Tabs = tabs
+	r.Printf("%sDeserialize%sJSON(d, &%s)", t.PackagePrefix(), t.Name, varName)
 }
 
 func (g GeneratorEncodingJSONDeserialize) Primitive(r *Result, p *Parser, lit TypeLit, specName string, _ string, castName string, varName string, _ []Comment, pointer bool) {

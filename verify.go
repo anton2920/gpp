@@ -32,19 +32,8 @@ func (g GeneratorVerify) Return() string {
 }
 
 func (g GeneratorVerify) NamedType(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool) {
-	tabs := r.Tabs
-
-	r.String("if err := ")
-
-	if len(t.Package) > 0 {
-		r.AddImport(t.Package)
-		r.Tabs = 0
-		r.String(t.Package)
-		r.Rune('.')
-	}
-
-	r.Printf("Verify%s(l, &%s); err != nil {", t.Name, varName)
-	r.Tabs = tabs + 1
+	r.Printf("if err := %sVerify%s(l, &%s); err != nil {", t.PackagePrefix(), t.Name, varName)
+	r.Tabs++
 	{
 		r.Line("return err")
 	}
