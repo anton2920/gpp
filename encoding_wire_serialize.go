@@ -33,7 +33,7 @@ func (g GeneratorEncodingWireSerialize) Struct(r *Result, ctx GenerationContext,
 }
 
 func (g GeneratorEncodingWireSerialize) StructField(r *Result, ctx GenerationContext, field *StructField, lit TypeLit) {
-	GenerateStructField(g, r, ctx, field, lit)
+	GenerateStructField(g, r, ctx.WithCast(LiteralName(lit)), field, lit)
 }
 
 func (g GeneratorEncodingWireSerialize) StructFieldSkip(field *StructField) bool {

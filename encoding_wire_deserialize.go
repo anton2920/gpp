@@ -38,7 +38,7 @@ func (g GeneratorEncodingWireDeserialize) Struct(r *Result, ctx GenerationContex
 
 func (g GeneratorEncodingWireDeserialize) StructField(r *Result, ctx GenerationContext, field *StructField, lit TypeLit) {
 	r.AddImport(field.Type.Package)
-	GenerateStructField(g, r, ctx, field, lit)
+	GenerateStructField(g, r, ctx.WithCast(field.Type.String()), field, lit)
 }
 
 func (g GeneratorEncodingWireDeserialize) StructFieldSkip(field *StructField) bool {

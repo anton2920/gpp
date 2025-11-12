@@ -186,7 +186,7 @@ func GenerateStructField(g Generator, r *Result, ctx GenerationContext, field *S
 	if lit != nil {
 		GenerateTypeLit(g, r, ctx, lit)
 	} else {
-		GenerateType(g, r, ctx, &field.Type)
+		GenerateType(g, r, ctx.WithCast(""), &field.Type)
 	}
 }
 
