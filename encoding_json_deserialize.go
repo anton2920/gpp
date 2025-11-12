@@ -1,64 +1,59 @@
 package main
 
-import (
-	"fmt"
-	"unicode"
-)
+import "unicode"
 
 type GeneratorEncodingJSONDeserialize struct{}
 
-func (g GeneratorEncodingJSONDeserialize) Imports() []string {
-	return []string{GOFA + "encoding/json"}
+func (g GeneratorEncodingJSONDeserialize) Decl(r *Result, ctx GenerationContext, t *Type) {
+	var star string
+	if IsSlice(t.Literal) {
+		star = "*"
+	}
+
+	r.AddImport(GOFA + "encoding/json")
+	r.Printf("func Deserialize%sJSON(d *json.Deserializer, %s %s%s) {", ctx.SpecName, ctx.VarName, star, t.String())
 }
 
-func (g GeneratorEncodingJSONDeserialize) Decl(t *Type, specName string, varName string) string {
-	return fmt.Sprintf("Deserialize%sJSON(d *json.Deserializer, %s %s) bool", specName, varName, t.String())
-}
-
-func (g GeneratorEncodingJSONDeserialize) Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool) {
-	GenerateType(g, r, p, t, specName, "", LiteralName(t.Literal), varName, comments, pointer)
+func (g GeneratorEncodingJSONDeserialize) Body(r *Result, ctx GenerationContext, t *Type) {
+	if IsSlice(t.Literal) {
+		ctx = ctx.WithVar("(*%s)", ctx.VarName)
+	}
+	GenerateType(g, r, ctx, t)
 	r.Line("return d.Error == nil")
 }
 
-func (g GeneratorEncodingJSONDeserialize) NamedType(r *Result, p *Parser, t *Type, specName string, varName string, _ []Comment, pointer bool) {
-	r.Printf("%sDeserialize%sJSON(d, &%s)", t.PackagePrefix(), t.Name, varName)
+func (g GeneratorEncodingJSONDeserialize) NamedType(r *Result, ctx GenerationContext, t *Type) {
+	r.Printf("%sDeserialize%sJSON(d, &%s)", t.PackagePrefix(), t.Name, ctx.VarName)
 }
 
-func (g GeneratorEncodingJSONDeserialize) Primitive(r *Result, p *Parser, lit TypeLit, specName string, _ string, castName string, varName string, _ []Comment, pointer bool) {
-	var amp string
-	if !pointer {
-		amp = "&"
-	}
-
+func (g GeneratorEncodingJSONDeserialize) Primitive(r *Result, ctx GenerationContext, lit TypeLit) {
 	litName := lit.String()
-	if len(castName) == 0 {
-		r.Printf("d.%c%s(%s%s)", unicode.ToUpper(rune(litName[0])), litName[1:], amp, varName)
+	if len(ctx.CastName) == 0 {
+		r.Printf("d.%c%s(%s)", unicode.ToUpper(rune(litName[0])), litName[1:], ctx.VarName)
 	} else {
 		r.AddImport("unsafe")
-		r.Printf("d.%c%s((*%s)(unsafe.Pointer(%s%s)))", unicode.ToUpper(rune(litName[0])), litName[1:], castName, amp, varName)
+		r.Printf("d.%c%s((*%s)(unsafe.Pointer(%s)))", unicode.ToUpper(rune(litName[0])), litName[1:], ctx.CastName, ctx.VarName)
 	}
 }
 
-func (g GeneratorEncodingJSONDeserialize) Struct(r *Result, p *Parser, s *Struct, specName string, varName string, comments []Comment) {
+func (g GeneratorEncodingJSONDeserialize) Struct(r *Result, ctx GenerationContext, s *Struct) {
 	r.Line("var key string")
 	r.Line("d.ObjectBegin()")
 	r.Line("for d.Key(&key) {")
-	r.Tabs++
 	{
 		r.Line("switch key {")
-		GenerateStructFields(g, r, p, s.Fields, specName, varName, nil)
+		GenerateStructFields(g, r, ctx, s.Fields, nil)
+		r.Tabs++
 		r.Line("}")
 	}
-	r.Tabs--
 	r.Line("}")
 	r.Line("d.ObjectEnd()")
 }
 
-func (g GeneratorEncodingJSONDeserialize) StructField(r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName string, varName string) {
-	r.Printf("case \"%s\":", fieldName)
-	r.Tabs++
+func (g GeneratorEncodingJSONDeserialize) StructField(r *Result, ctx GenerationContext, field *StructField, lit TypeLit) {
+	r.Printf("case \"%s\":", ctx.FieldName)
 	{
-		GenerateStructField(g, r, p, field, lit, specName, fieldName, LiteralName(lit), varName, field.Comments)
+		GenerateStructField(g, r, ctx, field, lit)
 	}
 	r.Tabs--
 }
@@ -67,26 +62,32 @@ func (g GeneratorEncodingJSONDeserialize) StructFieldSkip(field *StructField) bo
 	return JSONStructFieldSkip(field)
 }
 
-func (g GeneratorEncodingJSONDeserialize) Array(r *Result, p *Parser, a *Array, specName string, varName string, comments []Comment) {
-}
+func (g GeneratorEncodingJSONDeserialize) Array(r *Result, ctx GenerationContext, a *Array) {
+	i := ctx.LoopVar()
 
-func (g GeneratorEncodingJSONDeserialize) Slice(r *Result, p *Parser, s *Slice, specName string, varName string, comments []Comment) {
 	r.Line("d.ArrayBegin()")
-	r.Line("for d.Next() {")
-	r.Tabs++
+	r.Printf("for %s := 0; (%s < len(%s)) && (d.Next()); %s++ {", i, i, ctx.VarName, i)
 	{
-		const element = "element"
-		if len(s.Element.Package) > 0 {
-			r.AddImport(s.Element.Package)
-		}
-		r.Printf("var %s %s", element, s.Element.String())
-		GenerateSliceElement(g, r, p, &s.Element, specName, "element", comments)
-		r.Printf("%s = append(%s, %s)", varName, varName, element)
+		GenerateArrayElement(g, r, ctx.WithVar("%s[%s]", ctx.VarName, i), &a.Element)
 	}
-	r.Tabs--
 	r.Line("}")
 	r.Line("d.ArrayEnd()")
 }
 
-func (g GeneratorEncodingJSONDeserialize) Union(r *Result, p *Parser, u *Union, specName string, varName string, comments []Comment) {
+func (g GeneratorEncodingJSONDeserialize) Slice(r *Result, ctx GenerationContext, s *Slice) {
+	const element = "element"
+
+	r.Line("d.ArrayBegin()")
+	r.Line("for d.Next() {")
+	{
+		r.AddImport(s.Element.Package)
+		r.Printf("var %s %s", element, s.Element.String())
+		GenerateArrayElement(g, r, ctx.WithVar(element), &s.Element)
+		r.Printf("%s = append(%s, %s)", ctx.VarName, ctx.VarName, element)
+	}
+	r.Line("}")
+	r.Line("d.ArrayEnd()")
+}
+
+func (g GeneratorEncodingJSONDeserialize) Union(r *Result, ctx GenerationContext, u *Union) {
 }

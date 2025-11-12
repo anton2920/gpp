@@ -150,36 +150,33 @@ func (r *Result) ShouldDump() bool {
 	return r.Buffer.Len() != 0
 }
 
-func (r *Result) DoTabs() {
+func (r *Result) DoTabs(s string) {
+	if strings.EndsWith(s, "}") {
+		r.Tabs--
+	}
 	for i := 0; i < r.Tabs; i++ {
 		r.Buffer.WriteRune('\t')
+	}
+	if ((strings.EndsWith(s, "{")) || (strings.EndsWith(s, ":"))) && (strings.FindSubstring(s, "switch") == -1) {
+		r.Tabs++
 	}
 }
 
 func (r *Result) Printf(format string, args ...interface{}) {
-	r.DoTabs()
+	r.DoTabs(format)
 	fmt.Fprintf(&r.Buffer, format, args...)
 	r.Buffer.WriteRune('\n')
 }
 
-func (r *Result) Bytes(b []byte) {
-	r.DoTabs()
-	r.Buffer.Write(b)
-}
-
 func (r *Result) Line(l string) {
-	r.String(l)
+	r.DoTabs(l)
+	r.Buffer.WriteString(l)
 	r.Buffer.WriteRune('\n')
 }
 
 func (r *Result) Rune(c rune) {
-	r.DoTabs()
+	r.DoTabs("")
 	r.Buffer.WriteRune(c)
-}
-
-func (r *Result) String(s string) {
-	r.DoTabs()
-	r.Buffer.WriteString(s)
 }
 
 func GeneratedName(filename string) string {

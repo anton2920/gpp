@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	stdstrings "strings"
 	"unicode"
 
 	"github.com/anton2920/gofa/strings"
@@ -9,129 +10,123 @@ import (
 
 type KeySet map[string]struct{}
 
+type GenerationContext struct {
+	*Parser
+
+	SpecName  string
+	FieldName string
+	CastName  string
+	VarName   string
+
+	Level    int
+	Comments []Comment
+}
+
 type Generator interface {
-	Imports() []string
-	Decl(t *Type, specName string, varName string) string
+	Decl(r *Result, ctx GenerationContext, t *Type)
+	Body(r *Result, ctx GenerationContext, t *Type)
 
-	Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool)
+	NamedType(r *Result, ctx GenerationContext, t *Type)
+	Primitive(r *Result, ctx GenerationContext, lit TypeLit)
 
-	NamedType(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool)
-	Primitive(r *Result, p *Parser, lit TypeLit, specName string, fieldName string, castName string, varName string, comments []Comment, pointer bool)
-
-	Struct(r *Result, p *Parser, s *Struct, specName string, varName string, comments []Comment)
-	StructField(r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName string, varName string)
+	Struct(r *Result, ctx GenerationContext, s *Struct)
+	StructField(r *Result, ctx GenerationContext, field *StructField, lit TypeLit)
 	StructFieldSkip(field *StructField) bool
 
-	Array(r *Result, p *Parser, a *Array, specName string, varName string, comments []Comment)
-	Slice(r *Result, p *Parser, s *Slice, specName string, varName string, comments []Comment)
+	Array(r *Result, ctx GenerationContext, a *Array)
+	Slice(r *Result, ctx GenerationContext, s *Slice)
 
-	Union(r *Result, p *Parser, u *Union, specName string, varName string, comments []Comment)
+	Union(r *Result, ctx GenerationContext, u *Union)
+}
+
+func (ctx *GenerationContext) LoopVar() string {
+	i := fmt.Sprintf("i%d", ctx.Level)
+	ctx.Level++
+	return i
+}
+
+func (ctx GenerationContext) WithVar(format string, args ...interface{}) GenerationContext {
+	nctx := ctx
+	nctx.VarName = fmt.Sprintf(format, args...)
+	return nctx
+}
+
+func (ctx GenerationContext) WithComments(comments []Comment) GenerationContext {
+	nctx := ctx
+	nctx.Comments = append(nctx.Comments, comments)
+	return nctx
+}
+
+/* NOTE(anton2920): this supports only ASCII. */
+func VariableName(typeName string) string {
+	if typeName == stdstrings.ToUpper(typeName) {
+		return stdstrings.ToLower(typeName)
+	}
+
+	var lastUpper int
+	for i := 0; i < len(typeName); i++ {
+		if unicode.IsUpper(rune(typeName[i])) {
+			lastUpper = i
+		}
+	}
+
+	return fmt.Sprintf("%c%s", unicode.ToLower(rune(typeName[lastUpper])), typeName[lastUpper+1:])
 }
 
 func Generate(g Generator, r *Result, p *Parser, ts *TypeSpec) {
-	r.AddImports(g.Imports())
+	var ctx GenerationContext
+
+	ctx.Parser = p
+	ctx.Comments = ts.Comments
 
 	{
-		t := Type{Literal: &Pointer{BaseType: Type{Name: ts.Name}}}
-		varName := VariableName(ts.Name, false)
+		ctx.SpecName = ts.Name
+		ctx.VarName = VariableName(ts.Name)
 
-		r.Printf("\nfunc %s {", g.Decl(&t, ts.Name, varName))
-		r.Tabs++
-
-		g.Body(r, p, &ts.Type, ts.Name, varName, ts.Comments, true)
-
-		r.Tabs--
+		r.Rune('\n')
+		g.Decl(r, ctx, &Type{Literal: Pointer{BaseType: Type{Name: ts.Name}}})
+		{
+			// g.Body(r, ctx, &Type{Literal: Pointer{BaseType: ts.Type}})
+			g.Body(r, ctx, &ts.Type)
+		}
 		r.Line("}")
 	}
 
 	{
-		t := Type{Literal: &Slice{Element: Type{Name: ts.Name}}}
-		varName := VariableName(ts.Name, true)
+		ctx.SpecName = Plural(ts.Name)
+		ctx.VarName = Plural(VariableName(ts.Name))
 
-		r.Printf("\nfunc %s {", g.Decl(&t, Plural(ts.Name), varName))
-		r.Tabs++
+		t := Type{Literal: Slice{Element: Type{Name: ts.Name}}}
+		r.Rune('\n')
+		g.Decl(r, ctx, &t)
 		{
-			g.Body(r, p, &t, ts.Name, varName, ts.Comments, true)
+			g.Body(r, ctx, &t)
 		}
-		r.Tabs--
 		r.Line("}")
 	}
 }
 
-func GenerateType(g Generator, r *Result, p *Parser, t *Type, specName string, fieldName string, castName string, varName string, comments []Comment, varPointer bool) {
+func GenerateType(g Generator, r *Result, ctx GenerationContext, t *Type) {
 	if t.Literal != nil {
-		GenerateTypeLit(g, r, p, t.Literal, specName, fieldName, castName, varName, comments, varPointer)
+		GenerateTypeLit(g, r, ctx, t.Literal)
 	} else {
 		r.AddImport(t.Package)
-		g.NamedType(r, p, t, specName, varName, comments, varPointer)
+		g.NamedType(r, ctx, t)
 	}
 }
 
-func GenerateTypeLit(g Generator, r *Result, p *Parser, lit TypeLit, specName string, fieldName string, castName string, varName string, comments []Comment, varPointer bool) {
+func GenerateTypeLit(g Generator, r *Result, ctx GenerationContext, lit TypeLit) {
 	switch lit := lit.(type) {
-	case *Int, *Float, *String:
-		g.Primitive(r, p, lit, specName, fieldName, castName, varName, comments, varPointer)
-	case *Array:
-		g.Array(r, p, lit, specName, varName, comments)
-	case *Slice:
-		g.Slice(r, p, lit, specName, varName, comments)
-	case *Struct:
-		g.Struct(r, p, lit, specName, varName, comments)
-	case *Union:
-		g.Union(r, p, lit, specName, varName, comments)
-	}
-}
-
-func GenerateStructFields(g Generator, r *Result, p *Parser, fields []StructField, specName string, varName string, forbiddenFields KeySet) {
-	currentFields := make(KeySet)
-	for field := range forbiddenFields {
-		currentFields[field] = struct{}{}
-	}
-	for _, field := range fields {
-		if StructFieldSkip(g, &field) {
-			continue
-		}
-		fieldName := strings.Or(field.Name, field.Type.Name)
-		currentFields[fieldName] = struct{}{}
-	}
-
-	for _, field := range fields {
-		if StructFieldSkip(g, &field) {
-			continue
-		}
-
-		fieldName := strings.Or(field.Name, field.Type.Name)
-		name := fmt.Sprintf("%s.%s", varName, fieldName)
-
-		var lit TypeLit
-		if (field.Type.Literal == nil) && (len(field.Name) == 0) && (len(field.Type.Name) > 0) {
-			lit = p.FindTypeLit(r.Imports, strings.Or(field.Type.Package, r.Package), field.Type.Name)
-			if s, ok := lit.(*Struct); ok {
-				for i := 0; i < len(s.Fields); i++ {
-					f := &s.Fields[i]
-					if len(f.Type.Package) == 0 {
-						f.Type.Package = field.Type.Package
-					}
-				}
-				GenerateStructFields(g, r, p, s.Fields, specName, name, currentFields)
-				continue
-			}
-		}
-
-		if _, ok := forbiddenFields[fieldName]; !ok {
-			g.StructField(r, p, &field, lit, specName, fieldName, name)
-			if forbiddenFields != nil {
-				forbiddenFields[fieldName] = struct{}{}
-			}
-		}
-	}
-}
-
-func GenerateStructField(g Generator, r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName string, castName string, varName string, comments []Comment) {
-	if lit != nil {
-		GenerateTypeLit(g, r, p, lit, specName, fieldName, castName, varName, field.Comments, false)
-	} else {
-		GenerateType(g, r, p, &field.Type, specName, fieldName, "", varName, field.Comments, false)
+	case Int, Float, Pointer, String:
+		g.Primitive(r, ctx, lit)
+	case Array:
+		g.Array(r, ctx, &lit)
+	case Slice:
+		g.Slice(r, ctx, &lit)
+	case Struct:
+		g.Struct(r, ctx, &lit)
+	case Union:
+		g.Union(r, ctx, &lit)
 	}
 }
 
@@ -158,15 +153,68 @@ func StructFieldSkip(g Generator, field *StructField) bool {
 	return false
 }
 
-func GenerateSliceElement(g Generator, r *Result, p *Parser, elem *Type, specName string, varName string, comments []Comment) {
+func GenerateStructFields(g Generator, r *Result, ctx GenerationContext, fields []StructField, forbiddenFields KeySet) {
+	currentFields := make(KeySet)
+	for field := range forbiddenFields {
+		currentFields[field] = struct{}{}
+	}
+	for _, field := range fields {
+		if StructFieldSkip(g, &field) {
+			continue
+		}
+		fieldName := strings.Or(field.Name, field.Type.Name)
+		currentFields[fieldName] = struct{}{}
+	}
+
+	for _, field := range fields {
+		if StructFieldSkip(g, &field) {
+			continue
+		}
+
+		ctx.FieldName = strings.Or(field.Name, field.Type.Name)
+		name := fmt.Sprintf("%s.%s", ctx.VarName, ctx.FieldName)
+
+		var lit TypeLit
+		if (field.Type.Literal == nil) && (len(field.Name) == 0) && (len(field.Type.Name) > 0) {
+			lit = ctx.FindTypeLit(r.Imports, strings.Or(field.Type.Package, r.Package), field.Type.Name)
+			if s, ok := lit.(*Struct); ok {
+				for i := 0; i < len(s.Fields); i++ {
+					f := &s.Fields[i]
+					if len(f.Type.Package) == 0 {
+						f.Type.Package = field.Type.Package
+					}
+				}
+				GenerateStructFields(g, r, ctx.WithVar(name).WithComments(field.Comments), s.Fields, currentFields)
+				continue
+			}
+		}
+
+		if _, ok := forbiddenFields[ctx.FieldName]; !ok {
+			g.StructField(r, ctx.WithVar(name).WithComments(field.Comments), &field, lit)
+			if forbiddenFields != nil {
+				forbiddenFields[ctx.FieldName] = struct{}{}
+			}
+		}
+	}
+}
+
+func GenerateStructField(g Generator, r *Result, ctx GenerationContext, field *StructField, lit TypeLit) {
+	if lit != nil {
+		GenerateTypeLit(g, r, ctx, lit)
+	} else {
+		GenerateType(g, r, ctx, &field.Type)
+	}
+}
+
+func GenerateArrayElement(g Generator, r *Result, ctx GenerationContext, elem *Type) {
 	if len(elem.Name) > 0 {
-		lit := p.FindTypeLit(r.Imports, strings.Or(elem.Package, r.Package), elem.Name)
+		lit := ctx.FindTypeLit(r.Imports, strings.Or(elem.Package, r.Package), elem.Name)
 		if (lit != nil) && (IsPrimitive(lit)) {
-			GenerateTypeLit(g, r, p, lit, specName, "", lit.String(), varName, comments, false)
+			GenerateTypeLit(g, r, ctx, lit)
 			return
 		}
 	}
-	GenerateType(g, r, p, elem, specName, "", "", varName, comments, false)
+	GenerateType(g, r, ctx, elem)
 }
 
 func GeneratorsAll() []Generator {

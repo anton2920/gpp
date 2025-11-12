@@ -5,6 +5,7 @@ type (
 	//gpp:union: *StepTest, *StepProgramming
 	Step interface{}
 
+	//gpp:nop
 	StepCommon struct {
 		Name string
 	}

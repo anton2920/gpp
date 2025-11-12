@@ -52,6 +52,20 @@ func FixMyCut(s *string, rest *string, c1 byte, c2 byte) {
 	}
 }
 
+func AppendComments(cs1 []Comment, cs2 []Comment) []Comment {
+	for _, comment := range cs1 {
+		if _, ok := comment.(NOPComment); ok {
+			return []Comment{NOPComment{}}
+		}
+	}
+	for _, comment := range cs2 {
+		if _, ok := comment.(NOPComment); ok {
+			return []Comment{NOPComment{}}
+		}
+	}
+	return append(cs1, cs2...)
+}
+
 func (p *Parser) Comments(comments *[]Comment) bool {
 	const prefix = "gpp:"
 

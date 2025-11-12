@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"unicode"
 
 	"github.com/anton2920/gofa/strings"
@@ -10,29 +9,25 @@ import (
 type GeneratorFillValues struct{}
 
 func (g GeneratorFillValues) Imports() []string {
-	return []string{GOFA + "net/url"}
+	return []string{}
 }
 
-func (g GeneratorFillValues) Decl(t *Type, specName string, varName string) string {
-	return fmt.Sprintf("Fill%sFromValues(vs url.Values, %s %s)", specName, varName, t.String())
+func (g GeneratorFillValues) Decl(r *Result, ctx GenerationContext, t *Type) {
+	r.AddImport(GOFA + "net/url")
+	r.Printf("func Fill%sFromValues(vs url.Values, %s %s) {", ctx.SpecName, ctx.VarName, t.String())
 }
 
-func (g GeneratorFillValues) Body(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool) {
-	GenerateType(g, r, p, t, specName, "", LiteralName(t.Literal), varName, comments, pointer)
+func (g GeneratorFillValues) Body(r *Result, ctx GenerationContext, t *Type) {
+	GenerateType(g, r, ctx, t)
 }
 
-func (g GeneratorFillValues) NamedType(r *Result, p *Parser, t *Type, specName string, varName string, comments []Comment, pointer bool) {
-	r.Printf("%sFill%sFromValues(vs, &%s)", t.PackagePrefix(), t.Name, varName)
+func (g GeneratorFillValues) NamedType(r *Result, ctx GenerationContext, t *Type) {
+	r.Printf("%sFill%sFromValues(vs, &%s)", t.PackagePrefix(), t.Name, ctx.VarName)
 }
 
-func (g GeneratorFillValues) Primitive(r *Result, p *Parser, lit TypeLit, specName string, fieldName string, castName string, varName string, comments []Comment, pointer bool) {
-	var star string
-	if pointer {
-		star = "*"
-	}
-
+func (g GeneratorFillValues) Primitive(r *Result, ctx GenerationContext, lit TypeLit) {
 	var fc FillComment
-	for _, comment := range comments {
+	for _, comment := range ctx.Comments {
 		if c, ok := comment.(FillComment); ok {
 			fc.Enum = fc.Enum || c.Enum
 			strings.Replace(&fc.Func, c.Func)
@@ -40,40 +35,40 @@ func (g GeneratorFillValues) Primitive(r *Result, p *Parser, lit TypeLit, specNa
 	}
 
 	switch lit := lit.(type) {
-	case *Int, *Float:
+	case Int, Float:
 		litName := lit.String()
-		if (len(castName) == 0) || (litName == castName) {
-			r.Printf(`%s%s, _ = vs.Get%c%s("%s")`, star, varName, unicode.ToUpper(rune(litName[0])), litName[1:], fieldName)
+		if (len(ctx.CastName) == 0) || (litName == ctx.CastName) {
+			r.Printf(`%s, _ = vs.Get%c%s("%s")`, ctx.VarName, unicode.ToUpper(rune(litName[0])), litName[1:], ctx.FieldName)
 		} else {
 			const tmp = "tmp"
 
 			r.Line("{")
-			r.Tabs++
-			r.Printf(`%s, _ := vs.Get%c%s("%s")`, tmp, unicode.ToUpper(rune(litName[0])), litName[1:], fieldName)
-			if !fc.Enum {
-				r.Printf("%s%s = %s(%s)", star, varName, castName, tmp)
-			} else {
-				r.AddImport(GOFA + "ints")
-				r.Printf("%s%s = %s(ints.Clamp(int(%s), 1, int(%sCount)))", star, varName, castName, tmp, castName)
+			{
+				r.Printf(`%s, _ := vs.Get%c%s("%s")`, tmp, unicode.ToUpper(rune(litName[0])), litName[1:], ctx.FieldName)
+				if !fc.Enum {
+					r.Printf("%s = %s(%s)", ctx.VarName, ctx.CastName, tmp)
+				} else {
+					r.AddImport(GOFA + "ints")
+					r.Printf("%s = %s(ints.Clamp(int(%s), 1, int(%sCount)))", ctx.VarName, ctx.CastName, tmp, ctx.CastName)
+				}
 			}
-			r.Tabs--
 			r.Line("}")
 		}
-	case *String:
+	case String:
 		if len(fc.Func) == 0 {
-			r.Printf(`%s%s = vs.Get("%s")`, star, varName, fieldName)
+			r.Printf(`%s = vs.Get("%s")`, ctx.VarName, ctx.FieldName)
 		} else {
-			r.Printf(`%s%s, _ = %s(vs.Get("%s"))`, star, varName, fc.Func, fieldName)
+			r.Printf(`%s, _ = %s(vs.Get("%s"))`, ctx.VarName, fc.Func, ctx.FieldName)
 		}
 	}
 }
 
-func (g GeneratorFillValues) Struct(r *Result, p *Parser, s *Struct, specName string, varName string, comments []Comment) {
-	GenerateStructFields(g, r, p, s.Fields, specName, varName, nil)
+func (g GeneratorFillValues) Struct(r *Result, ctx GenerationContext, s *Struct) {
+	GenerateStructFields(g, r, ctx, s.Fields, nil)
 }
 
-func (g GeneratorFillValues) StructField(r *Result, p *Parser, field *StructField, lit TypeLit, specName string, fieldName string, varName string) {
-	GenerateStructField(g, r, p, field, lit, specName, fieldName, field.Type.Name, varName, field.Comments)
+func (g GeneratorFillValues) StructField(r *Result, ctx GenerationContext, field *StructField, lit TypeLit) {
+	GenerateStructField(g, r, ctx, field, lit)
 }
 
 func (g GeneratorFillValues) StructFieldSkip(field *StructField) bool {
@@ -87,11 +82,11 @@ func (g GeneratorFillValues) StructFieldSkip(field *StructField) bool {
 	return false
 }
 
-func (g GeneratorFillValues) Array(r *Result, p *Parser, a *Array, specName string, varName string, comments []Comment) {
+func (g GeneratorFillValues) Array(r *Result, ctx GenerationContext, a *Array) {
 }
 
-func (g GeneratorFillValues) Slice(r *Result, p *Parser, s *Slice, specName string, varName string, comments []Comment) {
+func (g GeneratorFillValues) Slice(r *Result, ctx GenerationContext, s *Slice) {
 }
 
-func (g GeneratorFillValues) Union(r *Result, p *Parser, u *Union, specName string, varName string, comments []Comment) {
+func (g GeneratorFillValues) Union(r *Result, ctx GenerationContext, u *Union) {
 }

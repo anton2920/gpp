@@ -7,6 +7,8 @@ import (
 )
 
 type TypeLit interface {
+	/* NOTE(anton2920): dummy function, so not all 'fmt.Stringer's are 'TypeLit's. */
+	TypeLit()
 	String() string
 }
 
@@ -69,22 +71,29 @@ type Struct struct {
 }
 
 var (
-	_ = TypeLit(new(Float))
-	_ = TypeLit(new(Int))
-	_ = TypeLit(new(Interface))
-	_ = TypeLit(new(Pointer))
-	_ = TypeLit(new(Slice))
-	_ = TypeLit(new(String))
-	_ = TypeLit(new(Struct))
+	_ = TypeLit(Array{})
+	_ = TypeLit(Float{})
+	_ = TypeLit(Int{})
+	_ = TypeLit(Interface{})
+	_ = TypeLit(Map{})
+	_ = TypeLit(Pointer{})
+	_ = TypeLit(Slice{})
+	_ = TypeLit(String{})
+	_ = TypeLit(Struct{})
 )
 
 func IsPrimitive(lit TypeLit) bool {
 	switch lit.(type) {
-	case *Int, *Float, *String, *Pointer, *Map:
+	case Int, Float, String, Pointer:
 		return true
 	default:
 		return false
 	}
+}
+
+func IsSlice(lit TypeLit) bool {
+	_, ok := lit.(Slice)
+	return ok
 }
 
 func LiteralName(lit TypeLit) string {
@@ -95,11 +104,26 @@ func LiteralName(lit TypeLit) string {
 	return name
 }
 
-func (a *Array) String() string {
+func (Array) TypeLit()     {}
+func (Float) TypeLit()     {}
+func (Int) TypeLit()       {}
+func (Interface) TypeLit() {}
+func (Map) TypeLit()       {}
+func (Pointer) TypeLit()   {}
+func (Slice) TypeLit()     {}
+func (String) TypeLit()    {}
+func (Struct) TypeLit()    {}
+func (Union) TypeLit()     {}
+
+func (a Array) String() string {
 	return fmt.Sprintf("[%d]%s", a.Size, a.Element.String())
 }
 
-func (i *Int) String() string {
+func (f Float) String() string {
+	return fmt.Sprintf("float%d", f.Bitsize)
+}
+
+func (i Int) String() string {
 	var prefix, suffix string
 	if i.Unsigned {
 		prefix = "u"
@@ -110,35 +134,31 @@ func (i *Int) String() string {
 	return fmt.Sprintf("%sint%s", prefix, suffix)
 }
 
-func (i *Interface) String() string {
+func (i Interface) String() string {
 	return "interface"
 }
 
-func (m *Map) String() string {
+func (m Map) String() string {
 	return fmt.Sprintf("map[%s]%s", m.KeyType, m.ValueType)
 }
 
-func (f *Float) String() string {
-	return fmt.Sprintf("float%d", f.Bitsize)
+func (p Pointer) String() string {
+	return fmt.Sprintf("*%s", p.BaseType)
 }
 
-func (p *Pointer) String() string {
-	return fmt.Sprintf("*%s", p.BaseType.String())
+func (s Slice) String() string {
+	return fmt.Sprintf("[]%s", s.Element)
 }
 
-func (s *Slice) String() string {
-	return fmt.Sprintf("[]%s", s.Element.String())
-}
-
-func (s *String) String() string {
+func (s String) String() string {
 	return "string"
 }
 
-func (s *Struct) String() string {
+func (s Struct) String() string {
 	return "struct"
 }
 
-func (u *Union) String() string {
+func (u Union) String() string {
 	return "union"
 }
 
@@ -350,30 +370,30 @@ func (p *Parser) TypeLit(tl *TypeLit) bool {
 	case token.IDENT:
 		switch p.Curr().Literal {
 		case "int", "uint", "int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64":
-			i := new(Int)
-			if p.Int(i) {
+			var i Int
+			if p.Int(&i) {
 				*tl = i
 				return true
 			}
 			return false
 		case "float32", "float64":
-			f := new(Float)
-			if p.Float(f) {
+			var f Float
+			if p.Float(&f) {
 				*tl = f
 				return true
 			}
 			return false
 		case "string":
-			s := new(String)
-			if p.String(s) {
+			var s String
+			if p.String(&s) {
 				*tl = s
 				return true
 			}
 			return false
 		}
 	case token.INTERFACE:
-		i := new(Interface)
-		if p.Interface(i) {
+		var i Interface
+		if p.Interface(&i) {
 			*tl = i
 			return true
 		}
@@ -382,38 +402,38 @@ func (p *Parser) TypeLit(tl *TypeLit) bool {
 		switch p.Next().GoToken {
 		case token.INT:
 			p.Position = pos
-			a := new(Array)
-			if p.Array(a) {
+			var a Array
+			if p.Array(&a) {
 				*tl = a
 				return true
 			}
 			return false
 		case token.RBRACK:
 			p.Position = pos
-			s := new(Slice)
-			if p.Slice(s) {
+			var s Slice
+			if p.Slice(&s) {
 				*tl = s
 				return true
 			}
 			return false
 		}
 	case token.MAP:
-		m := new(Map)
-		if p.Map(m) {
+		var m Map
+		if p.Map(&m) {
 			*tl = m
 			return true
 		}
 		return false
 	case token.MUL:
-		ptr := new(Pointer)
-		if p.Pointer(ptr) {
+		var ptr Pointer
+		if p.Pointer(&ptr) {
 			*tl = ptr
 			return true
 		}
 		return false
 	case token.STRUCT:
-		s := new(Struct)
-		if p.Struct(s) {
+		var s Struct
+		if p.Struct(&s) {
 			*tl = s
 			return true
 		}

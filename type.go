@@ -41,7 +41,7 @@ func (t *Type) PackagePrefix() string {
 	return ""
 }
 
-func (t *Type) String() string {
+func (t Type) String() string {
 	if litName := LiteralName(t.Literal); len(litName) > 0 {
 		return litName
 	}
@@ -147,7 +147,7 @@ func (p *Parser) TypeSpec(ts *TypeSpec) bool {
 
 		if p.Type(&ts.Type) {
 			ts.Comments = comments
-			if _, ok := ts.Type.Literal.(*Interface); ok {
+			if _, ok := ts.Type.Literal.(Interface); ok {
 				for _, comment := range comments {
 					if uc, ok := comment.(UnionComment); ok {
 						ts.Type.Literal = &Union{Types: uc.Types}
@@ -176,7 +176,7 @@ func (p *Parser) TypeDecl(tss *[]TypeSpec) bool {
 				if !p.Token(token.SEMICOLON) {
 					return false
 				}
-				ts.Comments = append(comments, ts.Comments...)
+				ts.Comments = AppendComments(comments, ts.Comments)
 				*tss = append(*tss, ts)
 			}
 			p.Next()
@@ -186,7 +186,7 @@ func (p *Parser) TypeDecl(tss *[]TypeSpec) bool {
 
 		var ts TypeSpec
 		if p.TypeSpec(&ts) {
-			ts.Comments = append(comments, ts.Comments...)
+			ts.Comments = AppendComments(comments, ts.Comments)
 			*tss = append(*tss, ts)
 			return true
 		}
