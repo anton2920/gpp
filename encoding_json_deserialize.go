@@ -16,7 +16,7 @@ func (g GeneratorEncodingJSONDeserialize) Decl(r *Result, ctx GenerationContext,
 
 func (g GeneratorEncodingJSONDeserialize) Body(r *Result, ctx GenerationContext, t *Type) {
 	if IsSlice(t.Literal) {
-		ctx = ctx.WithVar("(*%s)", ctx.VarName)
+		ctx.VarName = ctx.Deref(ctx.VarName)
 	}
 	GenerateType(g, r, ctx, t)
 	r.Line("return d.Error == nil")

@@ -14,7 +14,7 @@ func (g GeneratorEncodingWireDeserialize) Decl(r *Result, ctx GenerationContext,
 
 func (g GeneratorEncodingWireDeserialize) Body(r *Result, ctx GenerationContext, t *Type) {
 	if IsSlice(t.Literal) {
-		ctx = ctx.WithVar("(*%s)", ctx.VarName)
+		ctx.VarName = ctx.Deref(ctx.VarName)
 	}
 	GenerateType(g, r, ctx, t)
 }
