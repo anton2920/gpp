@@ -29,10 +29,10 @@ func (g GeneratorEncodingJSONDeserialize) NamedType(r *Result, ctx GenerationCon
 func (g GeneratorEncodingJSONDeserialize) Primitive(r *Result, ctx GenerationContext, lit TypeLit) {
 	litName := lit.String()
 	if len(ctx.CastName) == 0 {
-		r.Printf("d.%c%s(%s)", unicode.ToUpper(rune(litName[0])), litName[1:], ctx.VarName)
+		r.Printf("d.%c%s(%s)", unicode.ToUpper(rune(litName[0])), litName[1:], ctx.AddrOf(ctx.VarName))
 	} else {
 		r.AddImport("unsafe")
-		r.Printf("d.%c%s((*%s)(unsafe.Pointer(%s)))", unicode.ToUpper(rune(litName[0])), litName[1:], ctx.CastName, ctx.VarName)
+		r.Printf("d.%c%s((*%s)(unsafe.Pointer(%s)))", unicode.ToUpper(rune(litName[0])), litName[1:], ctx.CastName, ctx.AddrOf(ctx.VarName))
 	}
 }
 

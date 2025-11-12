@@ -28,9 +28,9 @@ func (g GeneratorEncodingWireDeserialize) NamedType(r *Result, ctx GenerationCon
 func (g GeneratorEncodingWireDeserialize) Primitive(r *Result, ctx GenerationContext, lit TypeLit) {
 	litName := lit.String()
 	if len(ctx.CastName) == 0 {
-		r.Printf("%s = d.%c%s()", ctx.VarName, unicode.ToUpper(rune(litName[0])), litName[1:])
+		r.Printf("%s = d.%c%s()", ctx.Deref(ctx.VarName), unicode.ToUpper(rune(litName[0])), litName[1:])
 	} else {
-		r.Printf("%s = %s(d.%c%s())", ctx.VarName, ctx.CastName, unicode.ToUpper(rune(litName[0])), litName[1:])
+		r.Printf("%s = %s(d.%c%s())", ctx.Deref(ctx.VarName), ctx.CastName, unicode.ToUpper(rune(litName[0])), litName[1:])
 	}
 }
 

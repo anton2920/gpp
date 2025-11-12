@@ -38,7 +38,7 @@ func (g GeneratorFillValues) Primitive(r *Result, ctx GenerationContext, lit Typ
 	case Int, Float:
 		litName := lit.String()
 		if (len(ctx.CastName) == 0) || (litName == ctx.CastName) {
-			r.Printf(`%s, _ = vs.Get%c%s("%s")`, ctx.VarName, unicode.ToUpper(rune(litName[0])), litName[1:], ctx.FieldName)
+			r.Printf(`%s, _ = vs.Get%c%s("%s")`, ctx.Deref(ctx.VarName), unicode.ToUpper(rune(litName[0])), litName[1:], ctx.FieldName)
 		} else {
 			const tmp = "tmp"
 
@@ -49,7 +49,7 @@ func (g GeneratorFillValues) Primitive(r *Result, ctx GenerationContext, lit Typ
 					r.Printf("%s = %s(%s)", ctx.VarName, ctx.CastName, tmp)
 				} else {
 					r.AddImport(GOFA + "ints")
-					r.Printf("%s = %s(ints.Clamp(int(%s), 1, int(%sCount)))", ctx.VarName, ctx.CastName, tmp, ctx.CastName)
+					r.Printf("%s = %s(ints.Clamp(int(%s), 1, int(%sCount)))", ctx.Deref(ctx.VarName), ctx.CastName, tmp, ctx.CastName)
 				}
 			}
 			r.Line("}")

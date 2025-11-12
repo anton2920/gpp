@@ -9,7 +9,9 @@ import (
 	"github.com/anton2920/gofa/strings"
 )
 
-type Comment interface{}
+type Comment interface {
+	Comment()
+}
 
 type NOPComment struct{}
 
@@ -36,6 +38,13 @@ type VerifyComment struct {
 type UnionComment struct {
 	Types []string
 }
+
+func (NOPComment) Comment()      {}
+func (InlineComment) Comment()   {}
+func (GenerateComment) Comment() {}
+func (FillComment) Comment()     {}
+func (VerifyComment) Comment()   {}
+func (UnionComment) Comment()    {}
 
 func FixMyCut(s *string, rest *string, c1 byte, c2 byte) {
 	l := strings.FindChar(*s, c1)

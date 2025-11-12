@@ -20,9 +20,9 @@ func (g GeneratorEncodingWireSerialize) NamedType(r *Result, ctx GenerationConte
 func (g GeneratorEncodingWireSerialize) Primitive(r *Result, ctx GenerationContext, lit TypeLit) {
 	litName := lit.String()
 	if len(ctx.CastName) == 0 {
-		r.Printf("s.%c%s(%s)", unicode.ToUpper(rune(litName[0])), litName[1:], ctx.VarName)
+		r.Printf("s.%c%s(%s)", unicode.ToUpper(rune(litName[0])), litName[1:], ctx.Deref(ctx.VarName))
 	} else {
-		r.Printf("s.%c%s(%s(%s))", unicode.ToUpper(rune(litName[0])), litName[1:], ctx.CastName, ctx.VarName)
+		r.Printf("s.%c%s(%s(%s))", unicode.ToUpper(rune(litName[0])), litName[1:], ctx.CastName, ctx.Deref(ctx.VarName))
 	}
 }
 

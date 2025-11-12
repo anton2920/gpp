@@ -17,6 +17,7 @@ type GenerationContext struct {
 	FieldName string
 	CastName  string
 	VarName   string
+	Autoderef bool
 
 	Level    int
 	Comments []Comment
@@ -53,8 +54,23 @@ func (ctx GenerationContext) WithVar(format string, args ...interface{}) Generat
 
 func (ctx GenerationContext) WithComments(comments []Comment) GenerationContext {
 	nctx := ctx
-	nctx.Comments = append(nctx.Comments, comments)
+	nctx.Comments = append(nctx.Comments, comments...)
 	return nctx
+}
+
+func (ctx GenerationContext) Deref(s string) string {
+	if ctx.Autoderef {
+		return s
+
+	}
+	return fmt.Sprintf("(*%s)", s)
+}
+
+func (ctx GenerationContext) AddrOf(s string) string {
+	if !ctx.Autoderef {
+		return s
+	}
+	return fmt.Sprintf("&%s", s)
 }
 
 /* NOTE(anton2920): this supports only ASCII. */
@@ -82,11 +98,11 @@ func Generate(g Generator, r *Result, p *Parser, ts *TypeSpec) {
 	{
 		ctx.SpecName = ts.Name
 		ctx.VarName = VariableName(ts.Name)
+		ctx.Autoderef = IsStruct(ts.Type.Literal)
 
 		r.Rune('\n')
 		g.Decl(r, ctx, &Type{Literal: Pointer{BaseType: Type{Name: ts.Name}}})
 		{
-			// g.Body(r, ctx, &Type{Literal: Pointer{BaseType: ts.Type}})
 			g.Body(r, ctx, &ts.Type)
 		}
 		r.Line("}")
@@ -95,6 +111,7 @@ func Generate(g Generator, r *Result, p *Parser, ts *TypeSpec) {
 	{
 		ctx.SpecName = Plural(ts.Name)
 		ctx.VarName = Plural(VariableName(ts.Name))
+		ctx.Autoderef = false
 
 		t := Type{Literal: Slice{Element: Type{Name: ts.Name}}}
 		r.Rune('\n')

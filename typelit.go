@@ -96,6 +96,11 @@ func IsSlice(lit TypeLit) bool {
 	return ok
 }
 
+func IsStruct(lit TypeLit) bool {
+	_, ok := lit.(Struct)
+	return ok
+}
+
 func LiteralName(lit TypeLit) string {
 	var name string
 	if lit != nil {
