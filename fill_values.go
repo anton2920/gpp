@@ -22,7 +22,7 @@ func (g GeneratorFillValues) Body(r *Result, ctx GenerationContext, t *Type) {
 }
 
 func (g GeneratorFillValues) NamedType(r *Result, ctx GenerationContext, t *Type) {
-	r.Printf("%sFill%sFromValues(vs, &%s)", t.PackagePrefix(), t.Name, ctx.VarName)
+	r.Printf("%sFill%sFromValues(vs, %s)", t.PackagePrefix(), t.Name, ctx.AddrOf(ctx.VarName))
 }
 
 func (g GeneratorFillValues) Primitive(r *Result, ctx GenerationContext, lit TypeLit) {

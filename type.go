@@ -150,7 +150,7 @@ func (p *Parser) TypeSpec(ts *TypeSpec) bool {
 			if _, ok := ts.Type.Literal.(Interface); ok {
 				for _, comment := range comments {
 					if uc, ok := comment.(UnionComment); ok {
-						ts.Type.Literal = &Union{Types: uc.Types}
+						ts.Type.Literal = Union{Types: uc.Types}
 						break
 					}
 				}

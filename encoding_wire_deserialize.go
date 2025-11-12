@@ -5,13 +5,11 @@ import "unicode"
 type GeneratorEncodingWireDeserialize struct{}
 
 func (g GeneratorEncodingWireDeserialize) Decl(r *Result, ctx GenerationContext, t *Type) {
-	var star string
 	if IsSlice(t.Literal) {
-		star = "*"
+		t = &Type{Literal: Pointer{BaseType: *t}}
 	}
-
 	r.AddImport(GOFA + "encoding/wire")
-	r.Printf("func Deserialize%sWire(d *wire.Deserializer, %s %s%s) {", ctx.SpecName, ctx.VarName, star, t.String())
+	r.Printf("func Deserialize%sWire(d *wire.Deserializer, %s %s) {", ctx.SpecName, ctx.VarName, t.String())
 }
 
 func (g GeneratorEncodingWireDeserialize) Body(r *Result, ctx GenerationContext, t *Type) {
@@ -22,7 +20,7 @@ func (g GeneratorEncodingWireDeserialize) Body(r *Result, ctx GenerationContext,
 }
 
 func (g GeneratorEncodingWireDeserialize) NamedType(r *Result, ctx GenerationContext, t *Type) {
-	r.Printf("%sDeserialize%sWire(d, &%s)", t.PackagePrefix(), t.Name, ctx.VarName)
+	r.Printf("%sDeserialize%sWire(d, %s)", t.PackagePrefix(), t.Name, ctx.AddrOf(ctx.VarName))
 }
 
 func (g GeneratorEncodingWireDeserialize) Primitive(r *Result, ctx GenerationContext, lit TypeLit) {
@@ -71,10 +69,11 @@ func (g GeneratorEncodingWireDeserialize) Union(r *Result, ctx GenerationContext
 	r.Printf("switch d.%c%s() {", unicode.ToUpper(rune(EncodingWireUnionKindType[0])), EncodingWireUnionKindType[1:])
 	{
 		for i, name := range u.Types {
-			var amp string
-			if name[0] == '*' {
+			if name[0] != '*' {
+				ctx.Autoderef = false
+			} else {
+				ctx.Autoderef = true
 				name = name[1:]
-				amp = "&"
 			}
 			t := Type{Name: name}
 
@@ -82,9 +81,11 @@ func (g GeneratorEncodingWireDeserialize) Union(r *Result, ctx GenerationContext
 			{
 				r.Printf("var %s %s", value, t)
 				g.NamedType(r, ctx.WithVar(value), &t)
-				r.Printf("*%s = %s%s", ctx.VarName, amp, value)
+				r.Printf("*%s = %s", ctx.VarName, ctx.AddrOf(value))
 			}
+			r.Tabs--
 		}
 	}
+	r.Tabs++
 	r.Line("}")
 }

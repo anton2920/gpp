@@ -14,7 +14,7 @@ func (g GeneratorEncodingJSONSerialize) Body(r *Result, ctx GenerationContext, t
 }
 
 func (g GeneratorEncodingJSONSerialize) NamedType(r *Result, ctx GenerationContext, t *Type) {
-	r.Printf("%sSerialize%sJSON(s, &%s)", t.PackagePrefix(), t.Name, ctx.VarName)
+	r.Printf("%sSerialize%sJSON(s, %s)", t.PackagePrefix(), t.Name, ctx.AddrOf(ctx.VarName))
 }
 
 func (g GeneratorEncodingJSONSerialize) Primitive(r *Result, ctx GenerationContext, lit TypeLit) {
@@ -38,7 +38,7 @@ func (g GeneratorEncodingJSONSerialize) Struct(r *Result, ctx GenerationContext,
 
 func (g GeneratorEncodingJSONSerialize) StructField(r *Result, ctx GenerationContext, field *StructField, lit TypeLit) {
 	r.Printf("s.Key(`%s`)", ctx.FieldName)
-	GenerateStructField(g, r, ctx, field, lit)
+	GenerateStructField(g, r, ctx.WithCast(LiteralName(lit)), field, lit)
 }
 
 func (g GeneratorEncodingJSONSerialize) StructFieldSkip(field *StructField) bool {

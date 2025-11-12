@@ -1,6 +1,8 @@
 package main
 
-import "unicode"
+import (
+	"unicode"
+)
 
 type GeneratorEncodingWireSerialize struct{}
 
@@ -14,7 +16,7 @@ func (g GeneratorEncodingWireSerialize) Body(r *Result, ctx GenerationContext, t
 }
 
 func (g GeneratorEncodingWireSerialize) NamedType(r *Result, ctx GenerationContext, t *Type) {
-	r.Printf("%sSerialize%sWire(s, &%s)", t.PackagePrefix(), t.Name, ctx.VarName)
+	r.Printf("%sSerialize%sWire(s, %s)", t.PackagePrefix(), t.Name, ctx.AddrOf(ctx.VarName))
 }
 
 func (g GeneratorEncodingWireSerialize) Primitive(r *Result, ctx GenerationContext, lit TypeLit) {
@@ -57,21 +59,27 @@ func (g GeneratorEncodingWireSerialize) Slice(r *Result, ctx GenerationContext, 
 }
 
 func (g GeneratorEncodingWireSerialize) Union(r *Result, ctx GenerationContext, u *Union) {
-	r.Printf("switch %s := %s.(type) {", ctx.VarName, ctx.VarName)
+	r.Printf("switch %s := %s.(type) {", ctx.VarName, ctx.Deref(ctx.VarName))
 	{
 		for i, name := range u.Types {
 			var star string
-			if name[0] == '*' {
+			if name[0] != '*' {
+				ctx.Autoderef = true
+			} else {
+				ctx.Autoderef = false
+				name = name[1:]
 				star = "*"
 			}
 			t := Type{Name: name}
 
-			r.Printf("case %s:", t)
+			r.Printf("case %s%s:", star, t)
 			{
 				r.Printf("s.%c%s(%d)", unicode.ToUpper(rune(EncodingWireUnionKindType[0])), EncodingWireUnionKindType[1:], i)
-				GenerateType(g, r, ctx.WithVar("%s%s", star, ctx.WithVar), &t)
+				g.NamedType(r, ctx, &t)
 			}
+			r.Tabs--
 		}
 	}
+	r.Tabs++
 	r.Line("}")
 }

@@ -11,7 +11,7 @@ func (g GeneratorEncodingJSONDeserialize) Decl(r *Result, ctx GenerationContext,
 	}
 
 	r.AddImport(GOFA + "encoding/json")
-	r.Printf("func Deserialize%sJSON(d *json.Deserializer, %s %s%s) {", ctx.SpecName, ctx.VarName, star, t.String())
+	r.Printf("func Deserialize%sJSON(d *json.Deserializer, %s %s%s) bool {", ctx.SpecName, ctx.VarName, star, t.String())
 }
 
 func (g GeneratorEncodingJSONDeserialize) Body(r *Result, ctx GenerationContext, t *Type) {
@@ -23,7 +23,7 @@ func (g GeneratorEncodingJSONDeserialize) Body(r *Result, ctx GenerationContext,
 }
 
 func (g GeneratorEncodingJSONDeserialize) NamedType(r *Result, ctx GenerationContext, t *Type) {
-	r.Printf("%sDeserialize%sJSON(d, &%s)", t.PackagePrefix(), t.Name, ctx.VarName)
+	r.Printf("%sDeserialize%sJSON(d, %s)", t.PackagePrefix(), t.Name, ctx.AddrOf(ctx.VarName))
 }
 
 func (g GeneratorEncodingJSONDeserialize) Primitive(r *Result, ctx GenerationContext, lit TypeLit) {
@@ -53,7 +53,7 @@ func (g GeneratorEncodingJSONDeserialize) Struct(r *Result, ctx GenerationContex
 func (g GeneratorEncodingJSONDeserialize) StructField(r *Result, ctx GenerationContext, field *StructField, lit TypeLit) {
 	r.Printf("case \"%s\":", ctx.FieldName)
 	{
-		GenerateStructField(g, r, ctx, field, lit)
+		GenerateStructField(g, r, ctx.WithCast(LiteralName(lit)), field, lit)
 	}
 	r.Tabs--
 }

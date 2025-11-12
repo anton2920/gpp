@@ -86,8 +86,7 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 	for p.Token(token.COMMENT) {
 		tok := p.Prev()
 		if !strings.StartsWith(tok.Literal[2:], prefix) {
-			p.Error = fmt.Errorf("expected prefix %q, got %q", prefix, tok.Literal)
-			return false
+			continue
 		}
 		lit := tok.Literal[2+len(prefix):]
 		if strings.EndsWith(lit, "*/") {

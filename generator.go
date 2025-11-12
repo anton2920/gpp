@@ -40,39 +40,6 @@ type Generator interface {
 	Union(r *Result, ctx GenerationContext, u *Union)
 }
 
-func (ctx *GenerationContext) LoopVar() string {
-	i := fmt.Sprintf("i%d", ctx.Level)
-	ctx.Level++
-	return i
-}
-
-func (ctx GenerationContext) WithVar(format string, args ...interface{}) GenerationContext {
-	nctx := ctx
-	nctx.VarName = fmt.Sprintf(format, args...)
-	return nctx
-}
-
-func (ctx GenerationContext) WithComments(comments []Comment) GenerationContext {
-	nctx := ctx
-	nctx.Comments = append(nctx.Comments, comments...)
-	return nctx
-}
-
-func (ctx GenerationContext) Deref(s string) string {
-	if ctx.Autoderef {
-		return s
-
-	}
-	return fmt.Sprintf("(*%s)", s)
-}
-
-func (ctx GenerationContext) AddrOf(s string) string {
-	if !ctx.Autoderef {
-		return s
-	}
-	return fmt.Sprintf("&%s", s)
-}
-
 /* NOTE(anton2920): this supports only ASCII. */
 func VariableName(typeName string) string {
 	if typeName == stdstrings.ToUpper(typeName) {
@@ -128,7 +95,7 @@ func GenerateType(g Generator, r *Result, ctx GenerationContext, t *Type) {
 		GenerateTypeLit(g, r, ctx, t.Literal)
 	} else {
 		r.AddImport(t.Package)
-		g.NamedType(r, ctx, t)
+		g.NamedType(r, ctx.WithAutoderef(true), t)
 	}
 }
 
@@ -194,7 +161,7 @@ func GenerateStructFields(g Generator, r *Result, ctx GenerationContext, fields 
 		var lit TypeLit
 		if (field.Type.Literal == nil) && (len(field.Name) == 0) && (len(field.Type.Name) > 0) {
 			lit = ctx.FindTypeLit(r.Imports, strings.Or(field.Type.Package, r.Package), field.Type.Name)
-			if s, ok := lit.(*Struct); ok {
+			if s, ok := lit.(Struct); ok {
 				for i := 0; i < len(s.Fields); i++ {
 					f := &s.Fields[i]
 					if len(f.Type.Package) == 0 {
@@ -227,11 +194,56 @@ func GenerateArrayElement(g Generator, r *Result, ctx GenerationContext, elem *T
 	if len(elem.Name) > 0 {
 		lit := ctx.FindTypeLit(r.Imports, strings.Or(elem.Package, r.Package), elem.Name)
 		if (lit != nil) && (IsPrimitive(lit)) {
-			GenerateTypeLit(g, r, ctx, lit)
+			GenerateTypeLit(g, r, ctx.WithCast(lit.String()), lit)
 			return
 		}
 	}
 	GenerateType(g, r, ctx, elem)
+}
+
+func (ctx *GenerationContext) LoopVar() string {
+	i := fmt.Sprintf("i%d", ctx.Level)
+	ctx.Level++
+	return i
+}
+
+func (ctx GenerationContext) WithCast(castName string) GenerationContext {
+	nctx := ctx
+	nctx.CastName = castName
+	return nctx
+}
+
+func (ctx GenerationContext) WithVar(format string, args ...interface{}) GenerationContext {
+	nctx := ctx
+	nctx.VarName = fmt.Sprintf(format, args...)
+	return nctx
+}
+
+func (ctx GenerationContext) WithComments(comments []Comment) GenerationContext {
+	nctx := ctx
+	nctx.Comments = append(nctx.Comments, comments...)
+	return nctx
+}
+
+func (ctx GenerationContext) WithAutoderef(state bool) GenerationContext {
+	nctx := ctx
+	nctx.Autoderef = state
+	return nctx
+}
+
+func (ctx GenerationContext) Deref(s string) string {
+	if ctx.Autoderef {
+		return s
+
+	}
+	return fmt.Sprintf("(*%s)", s)
+}
+
+func (ctx GenerationContext) AddrOf(s string) string {
+	if !ctx.Autoderef {
+		return s
+	}
+	return fmt.Sprintf("&%s", s)
 }
 
 func GeneratorsAll() []Generator {
