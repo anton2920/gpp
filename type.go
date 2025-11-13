@@ -30,6 +30,8 @@ type TypeSpec struct {
 func Plural(name string) string {
 	if strings.EndsWith(name, "y") {
 		return name[:len(name)-1] + "ies"
+	} else if strings.EndsWith(name, "s") {
+		return name + "es"
 	}
 	return name + "s"
 }
