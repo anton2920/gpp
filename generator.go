@@ -159,7 +159,7 @@ func GenerateStructFields(g Generator, r *Result, ctx GenerationContext, fields 
 		name := fmt.Sprintf("%s.%s", ctx.VarName, ctx.FieldName)
 
 		var lit TypeLit
-		if (field.Type.Literal == nil) && (len(field.Name) == 0) && (len(field.Type.Name) > 0) {
+		if (field.Type.Literal == nil) && (len(field.Type.Name) > 0) {
 			lit = ctx.FindTypeLit(r.Imports, strings.Or(field.Type.Package, r.Package), field.Type.Name)
 			if s, ok := lit.(Struct); ok {
 				for i := 0; i < len(s.Fields); i++ {
