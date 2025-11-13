@@ -79,9 +79,11 @@ func (g GeneratorEncodingWireDeserialize) Union(r *Result, ctx GenerationContext
 
 			r.Printf("case %d:", i)
 			{
-				r.Printf("var %s %s", value, t)
-				g.NamedType(r, ctx.WithVar(value), &t)
-				r.Printf("*%s = %s", ctx.VarName, ctx.AddrOf(value))
+				if name != "nil" {
+					r.Printf("var %s %s", value, t)
+					g.NamedType(r, ctx.WithVar(value), &t)
+					r.Printf("*%s = %s", ctx.VarName, ctx.AddrOf(value))
+				}
 			}
 			r.Tabs--
 		}

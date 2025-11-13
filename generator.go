@@ -162,14 +162,16 @@ func GenerateStructFields(g Generator, r *Result, ctx GenerationContext, fields 
 		if (field.Type.Literal == nil) && (len(field.Type.Name) > 0) {
 			lit = ctx.FindTypeLit(r.Imports, strings.Or(field.Type.Package, r.Package), field.Type.Name)
 			if s, ok := lit.(Struct); ok {
-				for i := 0; i < len(s.Fields); i++ {
-					f := &s.Fields[i]
-					if len(f.Type.Package) == 0 {
-						f.Type.Package = field.Type.Package
+				if len(field.Name) == 0 {
+					for i := 0; i < len(s.Fields); i++ {
+						f := &s.Fields[i]
+						if len(f.Type.Package) == 0 {
+							f.Type.Package = field.Type.Package
+						}
 					}
+					GenerateStructFields(g, r, ctx.WithVar(name).WithComments(field.Comments), s.Fields, currentFields)
+					continue
 				}
-				GenerateStructFields(g, r, ctx.WithVar(name).WithComments(field.Comments), s.Fields, currentFields)
-				continue
 			}
 		}
 

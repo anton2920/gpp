@@ -75,7 +75,9 @@ func (g GeneratorEncodingWireSerialize) Union(r *Result, ctx GenerationContext, 
 			r.Printf("case %s%s:", star, t)
 			{
 				r.Printf("s.%c%s(%d)", unicode.ToUpper(rune(EncodingWireUnionKindType[0])), EncodingWireUnionKindType[1:], i)
-				g.NamedType(r, ctx, &t)
+				if name != "nil" {
+					g.NamedType(r, ctx, &t)
+				}
 			}
 			r.Tabs--
 		}
