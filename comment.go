@@ -33,6 +33,7 @@ type VerifyComment struct {
 	MinLength string
 	MaxLength string
 	Funcs     []string
+	Optional  bool
 }
 
 type UnionComment struct {
@@ -243,7 +244,14 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 					FixMyCut(&s, &rest, '{', '}')
 
 					lval, rval, ok := strings.Cut(s, "=")
-					if ok {
+					if !ok {
+						lval = stdstrings.ToLower(strings.TrimSpace(lval))
+
+						switch lval {
+						case "optional":
+							vc.Optional = true
+						}
+					} else {
 						lval = stdstrings.ToLower(strings.TrimSpace(lval))
 						rval = strings.TrimSpace(rval)
 

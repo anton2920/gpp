@@ -1,9 +1,8 @@
 Now:
 
-- Move 'Parse*' functions from lexer.
-- Fix 'dot'-imports.
-- Add understanding of function and interface types.
+- Remove methods from 'Generator' in favor of type-switches.
 
 Later:
 
+- Fix 'dot'-imports.
 - Think about new keyword 'inline'

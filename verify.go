@@ -37,6 +37,7 @@ func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit
 			strings.Replace(&vc.Max, c.Max)
 			strings.Replace(&vc.MinLength, c.MinLength)
 			strings.Replace(&vc.MaxLength, c.MaxLength)
+			vc.Optional = vc.Optional || c.Optional
 			vc.Funcs = append(vc.Funcs, c.Funcs...)
 		}
 	}
@@ -46,6 +47,9 @@ func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit
 		minConst := r.AddConstant("Min"+ctx.SpecName+ctx.FieldName, vc.Min)
 		maxConst := r.AddConstant("Max"+ctx.SpecName+ctx.FieldName, vc.Max)
 
+		if vc.Optional {
+			r.Printf("if %s > 0 {", ctx.Deref(ctx.VarName))
+		}
 		if (len(vc.Min) > 0) && (len(vc.Max) > 0) {
 			r.Printf("if (%s < %s) || (%s > %s) {", ctx.Deref(ctx.VarName), minConst.Name, ctx.Deref(ctx.VarName), maxConst.Name)
 			{
@@ -68,7 +72,13 @@ func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit
 			}
 			r.Line("}")
 		}
+		if vc.Optional {
+			r.Line("}")
+		}
 	case String:
+		if vc.Optional {
+			r.Printf("if len(%s) > 0 {", ctx.Deref(ctx.VarName))
+		}
 		if (len(vc.MinLength) > 0) && (len(vc.MaxLength) > 0) {
 			minLengthConst := r.AddConstant("Min"+ctx.SpecName+ctx.FieldName+"Len", vc.MinLength)
 			maxLengthConst := r.AddConstant("Max"+ctx.SpecName+ctx.FieldName+"Len", vc.MaxLength)
@@ -91,6 +101,9 @@ func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit
 			{
 				r.Line("return err")
 			}
+			r.Line("}")
+		}
+		if vc.Optional {
 			r.Line("}")
 		}
 	}

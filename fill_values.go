@@ -35,6 +35,15 @@ func (g GeneratorFillValues) Primitive(r *Result, ctx GenerationContext, lit Typ
 	}
 
 	switch lit := lit.(type) {
+	case Bool:
+		r.Line("{")
+		{
+			const tmp = "tmp"
+
+			r.Printf(`%s := vs.Get("%s")`, tmp, ctx.FieldName)
+			r.Printf(`%s = (%s == "on")`, ctx.VarName, tmp)
+		}
+		r.Line("}")
 	case Int, Float:
 		litName := lit.String()
 		if (len(ctx.CastName) == 0) || (litName == ctx.CastName) {

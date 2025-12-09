@@ -101,7 +101,7 @@ func GenerateType(g Generator, r *Result, ctx GenerationContext, t *Type) {
 
 func GenerateTypeLit(g Generator, r *Result, ctx GenerationContext, lit TypeLit) {
 	switch lit := lit.(type) {
-	case Int, Float, Pointer, String:
+	case Bool, Int, Float, Pointer, String:
 		g.Primitive(r, ctx, lit)
 	case Array:
 		g.Array(r, ctx, &lit)

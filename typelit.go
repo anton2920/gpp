@@ -17,6 +17,8 @@ type Array struct {
 	Element Type
 }
 
+type Bool struct{}
+
 type Float struct {
 	Bitsize int
 }
@@ -72,6 +74,7 @@ type Struct struct {
 
 var (
 	_ = TypeLit(Array{})
+	_ = TypeLit(Bool{})
 	_ = TypeLit(Float{})
 	_ = TypeLit(Int{})
 	_ = TypeLit(Interface{})
@@ -110,6 +113,7 @@ func LiteralName(lit TypeLit) string {
 }
 
 func (Array) TypeLit()     {}
+func (Bool) TypeLit()      {}
 func (Float) TypeLit()     {}
 func (Int) TypeLit()       {}
 func (Interface) TypeLit() {}
@@ -122,6 +126,10 @@ func (Union) TypeLit()     {}
 
 func (a Array) String() string {
 	return fmt.Sprintf("[%d]%s", a.Size, a.Element.String())
+}
+
+func (b Bool) String() string {
+	return "bool"
 }
 
 func (f Float) String() string {
@@ -374,6 +382,10 @@ func (p *Parser) TypeLit(tl *TypeLit) bool {
 	switch p.Curr().GoToken {
 	case token.IDENT:
 		switch p.Curr().Literal {
+		case "bool":
+			*tl = Bool{}
+			p.Next()
+			return true
 		case "int", "uint", "int8", "uint8", "int16", "uint16", "int32", "uint32", "int64", "uint64":
 			var i Int
 			if p.Int(&i) {
