@@ -33,6 +33,7 @@ type VerifyComment struct {
 	MinLength string
 	MaxLength string
 	Funcs     []string
+	Required  bool
 	Optional  bool
 }
 
@@ -250,6 +251,8 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 						switch lval {
 						case "optional":
 							vc.Optional = true
+						case "required":
+							vc.Required = true
 						}
 					} else {
 						lval = stdstrings.ToLower(strings.TrimSpace(lval))

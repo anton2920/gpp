@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	stdstrings "strings"
 	"unicode"
 
 	"github.com/anton2920/gofa/strings"
@@ -25,6 +27,15 @@ func (g GeneratorFillValues) NamedType(r *Result, ctx GenerationContext, t *Type
 	r.Printf("%sFill%sFromValues(vs, %s)", t.PackagePrefix(), t.Name, ctx.AddrOf(ctx.VarName))
 }
 
+func FillWithFunc(r *Result, ctx GenerationContext, fn string) {
+	if !strings.StartsWith(fn, "{") {
+		fn = fmt.Sprintf(`%s(vs.Get("%s"))`, fn, ctx.FieldName)
+	} else {
+		fn = stdstrings.Replace(fn[1:len(fn)-1], "?", ctx.FieldName, 1)
+	}
+	r.Printf("%s = %s", ctx.VarName, fn)
+}
+
 func (g GeneratorFillValues) Primitive(r *Result, ctx GenerationContext, lit TypeLit) {
 	var fc FillComment
 	for _, comment := range ctx.Comments {
@@ -34,40 +45,40 @@ func (g GeneratorFillValues) Primitive(r *Result, ctx GenerationContext, lit Typ
 		}
 	}
 
-	switch lit := lit.(type) {
-	case Bool:
-		r.Line("{")
-		{
-			const tmp = "tmp"
-
-			r.Printf(`%s := vs.Get("%s")`, tmp, ctx.FieldName)
-			r.Printf(`%s = (%s == "on")`, ctx.VarName, tmp)
-		}
-		r.Line("}")
-	case Int, Float:
-		litName := lit.String()
-		if (len(ctx.CastName) == 0) || (litName == ctx.CastName) {
-			r.Printf(`%s, _ = vs.Get%c%s("%s")`, ctx.Deref(ctx.VarName), unicode.ToUpper(rune(litName[0])), litName[1:], ctx.FieldName)
-		} else {
-			const tmp = "tmp"
-
+	if len(fc.Func) > 0 {
+		FillWithFunc(r, ctx, fc.Func)
+	} else {
+		switch lit := lit.(type) {
+		case Bool:
 			r.Line("{")
 			{
-				r.Printf(`%s, _ := vs.Get%c%s("%s")`, tmp, unicode.ToUpper(rune(litName[0])), litName[1:], ctx.FieldName)
-				if !fc.Enum {
-					r.Printf("%s = %s(%s)", ctx.VarName, ctx.CastName, tmp)
-				} else {
-					r.AddImport(GOFA + "ints")
-					r.Printf("%s = %s(ints.Clamp(int(%s), 1, int(%sCount)))", ctx.Deref(ctx.VarName), ctx.CastName, tmp, ctx.CastName)
-				}
+				const tmp = "tmp"
+
+				r.Printf(`%s := vs.Get("%s")`, tmp, ctx.FieldName)
+				r.Printf(`%s = (%s == "on")`, ctx.VarName, tmp)
 			}
 			r.Line("}")
-		}
-	case String:
-		if len(fc.Func) == 0 {
+		case Int, Float:
+			litName := lit.String()
+			if (len(ctx.CastName) == 0) || (litName == ctx.CastName) {
+				r.Printf(`%s, _ = vs.Get%c%s("%s")`, ctx.Deref(ctx.VarName), unicode.ToUpper(rune(litName[0])), litName[1:], ctx.FieldName)
+			} else {
+				const tmp = "tmp"
+
+				r.Line("{")
+				{
+					r.Printf(`%s, _ := vs.Get%c%s("%s")`, tmp, unicode.ToUpper(rune(litName[0])), litName[1:], ctx.FieldName)
+					if !fc.Enum {
+						r.Printf("%s = %s(%s)", ctx.VarName, ctx.CastName, tmp)
+					} else {
+						r.AddImport(GOFA + "ints")
+						r.Printf("%s = %s(ints.Clamp(int(%s), 1, int(%sCount)))", ctx.Deref(ctx.VarName), ctx.CastName, tmp, ctx.CastName)
+					}
+				}
+				r.Line("}")
+			}
+		case String:
 			r.Printf(`%s = vs.Get("%s")`, ctx.VarName, ctx.FieldName)
-		} else {
-			r.Printf(`%s, _ = %s(vs.Get("%s"))`, ctx.VarName, fc.Func, ctx.FieldName)
 		}
 	}
 }
