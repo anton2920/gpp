@@ -53,6 +53,7 @@ func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit
 			strings.Replace(&vc.MinLength, c.MinLength)
 			strings.Replace(&vc.MaxLength, c.MaxLength)
 			vc.Optional = vc.Optional || c.Optional
+			strings.Replace(&vc.Prefix, c.Prefix)
 			vc.Required = vc.Required || c.Required
 			vc.Funcs = append(vc.Funcs, c.Funcs...)
 		}
@@ -60,8 +61,14 @@ func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit
 
 	switch lit.(type) {
 	case Int, Float:
-		minConst := r.AddConstant("Min"+ctx.SpecName+ctx.FieldName, vc.Min)
-		maxConst := r.AddConstant("Max"+ctx.SpecName+ctx.FieldName, vc.Max)
+		fieldName := ctx.FieldName
+		if strings.StartsWith(ctx.FieldName, "Min") {
+			fieldName = fieldName[len("Min"):]
+		} else if strings.StartsWith(ctx.FieldName, "Max") {
+			fieldName = fieldName[len("Max"):]
+		}
+		minConst := r.AddConstant(fmt.Sprintf("Min%s%s", strings.Or(vc.Prefix, ctx.SpecName), fieldName), vc.Min)
+		maxConst := r.AddConstant(fmt.Sprintf("Max%s%s", strings.Or(vc.Prefix, ctx.SpecName), fieldName), vc.Max)
 
 		if vc.Required {
 			r.Printf("if %s == 0 {", ctx.Deref(ctx.VarName))
@@ -116,8 +123,14 @@ func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit
 				r.Printf("if len(%s) > 0 {", ctx.Deref(ctx.VarName))
 			}
 			if (len(vc.MinLength) > 0) && (len(vc.MaxLength) > 0) {
-				minLengthConst := r.AddConstant("Min"+ctx.SpecName+ctx.FieldName+"Len", vc.MinLength)
-				maxLengthConst := r.AddConstant("Max"+ctx.SpecName+ctx.FieldName+"Len", vc.MaxLength)
+				fieldName := ctx.FieldName
+				if strings.StartsWith(ctx.FieldName, "Min") {
+					fieldName = fieldName[len("Min"):]
+				} else if strings.StartsWith(ctx.FieldName, "Max") {
+					fieldName = fieldName[len("Max"):]
+				}
+				minLengthConst := r.AddConstant(fmt.Sprintf("Min%s%sLen", strings.Or(vc.Prefix, ctx.SpecName), fieldName), vc.MinLength)
+				maxLengthConst := r.AddConstant(fmt.Sprintf("Max%s%sLen", strings.Or(vc.Prefix, ctx.SpecName), fieldName), vc.MaxLength)
 
 				r.Printf("if !strings.LengthInRange(%s, %s, %s) {", ctx.Deref(ctx.VarName), minLengthConst.Name, maxLengthConst.Name)
 				{

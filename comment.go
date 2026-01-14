@@ -33,6 +33,7 @@ type VerifyComment struct {
 	MinLength string
 	MaxLength string
 	Funcs     []string
+	Prefix    string
 	Required  bool
 	Optional  bool
 }
@@ -269,6 +270,8 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 							vc.MaxLength = rval
 						case "func":
 							vc.Funcs = append(vc.Funcs, rval)
+						case "prefix":
+							vc.Prefix = rval
 						}
 					}
 
