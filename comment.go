@@ -22,6 +22,8 @@ type GenerateComment struct {
 }
 
 type FillComment struct {
+	ClampFrom    string
+	ClampTo      string
 	InsertAfter  string
 	InsertBefore string
 	Func         string
@@ -231,6 +233,14 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 							rval = strings.TrimSpace(rval)
 
 							switch lval {
+							case "clamp":
+								if strings.StartsEndsWith(rval, "{", "}") {
+									from, to, ok := strings.Cut(rval[1:len(rval)-1], ",")
+									if ok {
+										fc.ClampFrom = from
+										fc.ClampTo = to
+									}
+								}
 							case "insertafter":
 								fc.InsertAfter = rval
 							case "insertbefore":

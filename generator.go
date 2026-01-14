@@ -56,6 +56,22 @@ func VariableName(typeName string) string {
 	return fmt.Sprintf("%c%s", unicode.ToLower(rune(typeName[lastUpper])), typeName[lastUpper+1:])
 }
 
+func PrependVariableName(s string, vn string) string {
+	for dot := 0; dot < len(s); dot++ {
+		period := strings.FindChar(s[dot:], '.')
+		if period == -1 {
+			break
+		}
+		dot += period
+
+		if (dot == 0) || (s[dot-1] == ' ') || (s[dot-1] == '(') || (s[dot-1] == '[') || (s[dot-1] == '{') || (s[dot-1] == '\t') {
+			s = s[:dot] + vn + s[dot:]
+			dot += len(vn)
+		}
+	}
+	return s
+}
+
 func Generate(g Generator, r *Result, p *Parser, ts *TypeSpec) {
 	var ctx GenerationContext
 
