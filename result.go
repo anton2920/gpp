@@ -61,6 +61,16 @@ func (r *Result) AddImports(is []string) {
 func (r *Result) AddConstant(name string, value string) Constant {
 	constant := Constant{Name: name, Value: value}
 	if len(constant.Value) > 0 {
+		for i := 0; i < len(r.Constants); i++ {
+			c := &r.Constants[i]
+			if constant.Name == c.Name {
+				if constant.Value != c.Value {
+					fmt.Fprintf(os.Stderr, "WARNING: overwriting constant %q from value %q to %q", c.Name, c.Value, value)
+					c.Value = value
+				}
+				return constant
+			}
+		}
 		r.Constants = append(r.Constants, constant)
 	}
 	return constant
