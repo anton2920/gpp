@@ -60,6 +60,7 @@ func (g GeneratorFillValues) Primitive(r *Result, ctx GenerationContext, lit Typ
 			r.Line("}")
 		case Int, Float:
 			litName := lit.String()
+
 			if (len(ctx.CastName) == 0) || (litName == ctx.CastName) {
 				r.Printf(`%s, _ = vs.Get%c%s("%s")`, ctx.Deref(ctx.VarName), unicode.ToUpper(rune(litName[0])), litName[1:], ctx.FieldName)
 			} else {
@@ -88,6 +89,10 @@ func (g GeneratorFillValues) Struct(r *Result, ctx GenerationContext, s *Struct)
 }
 
 func (g GeneratorFillValues) StructField(r *Result, ctx GenerationContext, field *StructField, lit TypeLit) {
+	/* TODO(anton2920): kolhozno! */
+	if (lit != nil) && (!IsStruct(lit)) {
+		ctx = ctx.WithCast(field.Type.Name)
+	}
 	GenerateStructField(g, r, ctx, field, lit)
 }
 
