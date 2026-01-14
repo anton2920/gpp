@@ -38,8 +38,9 @@ type VerifyComment struct {
 	MaxLength string
 	Funcs     []string
 	Prefix    string
-	Required  bool
 	Optional  bool
+	Required  bool
+	SOA       bool
 }
 
 type UnionComment struct {
@@ -278,6 +279,8 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 							vc.Optional = true
 						case "required":
 							vc.Required = true
+						case "soa":
+							vc.SOA = true
 						}
 					} else {
 						lval = stdstrings.ToLower(strings.TrimSpace(lval))
@@ -288,9 +291,9 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 							vc.Min = rval
 						case "max":
 							vc.Max = rval
-						case "minlength":
+						case "minlen", "minlength":
 							vc.MinLength = rval
-						case "maxlength":
+						case "maxlen", "maxlength":
 							vc.MaxLength = rval
 						case "func":
 							vc.Funcs = append(vc.Funcs, rval)

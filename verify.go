@@ -9,6 +9,21 @@ import (
 
 type GeneratorVerify struct{}
 
+func VerifyWithFuncs(r *Result, ctx GenerationContext, funcs []string) {
+	for _, fn := range funcs {
+		if !strings.StartsWith(fn, "{") {
+			fn = fmt.Sprintf("%s(l, %s)", fn, ctx.Deref(ctx.VarName))
+		} else {
+			fn = stdstrings.Replace(fn[1:len(fn)-1], "?", ctx.Deref(ctx.VarName), 1)
+		}
+		r.Printf("if err := %s; err != nil {", fn)
+		{
+			r.Line("return err")
+		}
+		r.Line("}")
+	}
+}
+
 func (g GeneratorVerify) Decl(r *Result, ctx GenerationContext, t *Type) {
 	r.AddImport(GOFA + "l10n")
 	r.Printf("func Verify%s(l l10n.Language, %s %s) error {", ctx.SpecName, ctx.VarName, t.String())
@@ -25,21 +40,6 @@ func (g GeneratorVerify) NamedType(r *Result, ctx GenerationContext, t *Type) {
 		r.Line("return err")
 	}
 	r.Line("}")
-}
-
-func VerifyWithFuncs(r *Result, ctx GenerationContext, funcs []string) {
-	for _, fn := range funcs {
-		if !strings.StartsWith(fn, "{") {
-			fn = fmt.Sprintf("%s(l, %s)", fn, ctx.Deref(ctx.VarName))
-		} else {
-			fn = stdstrings.Replace(fn[1:len(fn)-1], "?", ctx.Deref(ctx.VarName), 1)
-		}
-		r.Printf("if err := %s; err != nil {", fn)
-		{
-			r.Line("return err")
-		}
-		r.Line("}")
-	}
 }
 
 func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit) {
