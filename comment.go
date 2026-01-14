@@ -22,9 +22,11 @@ type GenerateComment struct {
 }
 
 type FillComment struct {
-	Func string
-	Enum bool
-	NOP  bool
+	InsertAfter  string
+	InsertBefore string
+	Func         string
+	Enum         bool
+	NOP          bool
 }
 
 type VerifyComment struct {
@@ -58,6 +60,14 @@ func FixMyCut(s *string, rest *string, c1 byte, c2 byte) {
 			if r == -1 {
 				return
 			}
+
+			/* Be greedy: if there are multiple 'c2's close by, find the rightmost one. */
+			r++
+			for (r < len(*rest)) && ((*rest)[r] == c2) {
+				r++
+			}
+			r--
+
 			*s = fmt.Sprintf("%s,%s", *s, (*rest)[:r+1])
 			*rest = (*rest)[r+1:]
 		}
@@ -221,6 +231,10 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 							rval = strings.TrimSpace(rval)
 
 							switch lval {
+							case "insertafter":
+								fc.InsertAfter = rval
+							case "insertbefore":
+								fc.InsertBefore = rval
 							case "func":
 								fc.Func = rval
 							}

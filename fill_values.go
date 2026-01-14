@@ -10,21 +10,36 @@ import (
 
 type GeneratorFillValues struct{}
 
-func (g GeneratorFillValues) Imports() []string {
-	return []string{}
-}
+func FillInsert(r *Result, ctx GenerationContext, insert string) {
+	vn := VariableName(ctx.SpecName)
 
-func (g GeneratorFillValues) Decl(r *Result, ctx GenerationContext, t *Type) {
-	r.AddImport(GOFA + "net/url")
-	r.Printf("func Fill%sFromValues(vs url.Values, %s %s) {", ctx.SpecName, ctx.VarName, t.String())
-}
+	if strings.StartsWith(insert, "{") {
+		if strings.EndsWith(insert, "}") {
+			insert = insert[1 : len(insert)-1]
+			for dot := 0; dot < len(insert); dot++ {
+				period := strings.FindChar(insert[dot:], '.')
+				if period == -1 {
+					break
+				}
+				dot += period
 
-func (g GeneratorFillValues) Body(r *Result, ctx GenerationContext, t *Type) {
-	GenerateType(g, r, ctx, t)
-}
+				if (dot == 0) || (insert[dot-1] == ' ') || (insert[dot-1] == '(') || (insert[dot-1] == '[') || (insert[dot-1] == '{') || (insert[dot-1] == '\t') {
+					insert = insert[:dot] + vn + insert[dot:]
+					dot += len(vn)
+				}
+			}
 
-func (g GeneratorFillValues) NamedType(r *Result, ctx GenerationContext, t *Type) {
-	r.Printf("%sFill%sFromValues(vs, %s)", t.PackagePrefix(), t.Name, ctx.AddrOf(ctx.VarName))
+			lines := stdstrings.Split(insert, "\n")
+			tabs := r.Tabs
+			for i := 0; i < len(lines); i++ {
+				if strings.EndsWith(lines[i], "}") {
+					r.Tabs++
+				}
+				r.Line(lines[i])
+				r.Tabs = tabs
+			}
+		}
+	}
 }
 
 func FillWithFunc(r *Result, ctx GenerationContext, fn string) {
@@ -36,10 +51,48 @@ func FillWithFunc(r *Result, ctx GenerationContext, fn string) {
 	r.Printf("%s = %s", ctx.VarName, fn)
 }
 
+func (g GeneratorFillValues) Imports() []string {
+	return []string{}
+}
+
+func (g GeneratorFillValues) Decl(r *Result, ctx GenerationContext, t *Type) {
+	r.AddImport(GOFA + "net/url")
+	r.Printf("func Fill%sFromValues(vs url.Values, %s %s) {", ctx.SpecName, ctx.VarName, t.String())
+}
+
+func (g GeneratorFillValues) Body(r *Result, ctx GenerationContext, t *Type) {
+	var fc FillComment
+
+	if !IsSlice(t.Literal) {
+		for _, comment := range ctx.Comments {
+			if c, ok := comment.(FillComment); ok {
+				/* NOTE(anton2920): it multiple insert sources are needed, switch to []string. */
+				strings.Replace(&fc.InsertAfter, c.InsertAfter)
+				strings.Replace(&fc.InsertBefore, c.InsertBefore)
+
+				fc.Enum = fc.Enum || c.Enum
+				strings.Replace(&fc.Func, c.Func)
+			}
+		}
+	}
+
+	FillInsert(r, ctx, fc.InsertBefore)
+	GenerateType(g, r, ctx, t)
+	FillInsert(r, ctx, fc.InsertAfter)
+}
+
+func (g GeneratorFillValues) NamedType(r *Result, ctx GenerationContext, t *Type) {
+	r.Printf("%sFill%sFromValues(vs, %s)", t.PackagePrefix(), t.Name, ctx.AddrOf(ctx.VarName))
+}
+
 func (g GeneratorFillValues) Primitive(r *Result, ctx GenerationContext, lit TypeLit) {
 	var fc FillComment
 	for _, comment := range ctx.Comments {
 		if c, ok := comment.(FillComment); ok {
+			/* NOTE(anton2920): it multiple insert sources are needed, switch to []string. */
+			strings.Replace(&fc.InsertAfter, c.InsertAfter)
+			strings.Replace(&fc.InsertBefore, c.InsertBefore)
+
 			fc.Enum = fc.Enum || c.Enum
 			strings.Replace(&fc.Func, c.Func)
 		}

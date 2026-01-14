@@ -1,6 +1,7 @@
 Now:
 
 - Remove methods from 'Generator' in favor of type-switches.
+- Factor-out comment coalescing.
 
 Later:
 
