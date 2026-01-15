@@ -24,13 +24,42 @@ func VerifyWithFuncs(r *Result, ctx GenerationContext, funcs []string) {
 	}
 }
 
+func MergeVerifyComments(comments []Comment) VerifyComment {
+	var vc VerifyComment
+
+	for _, comment := range comments {
+		if c, ok := comment.(VerifyComment); ok {
+			vc.InsertAfter = append(vc.InsertAfter, c.InsertAfter...)
+			vc.InsertBefore = append(vc.InsertBefore, c.InsertBefore...)
+			strings.Replace(&vc.Min, c.Min)
+			strings.Replace(&vc.Max, c.Max)
+			strings.Replace(&vc.MinLength, c.MinLength)
+			strings.Replace(&vc.MaxLength, c.MaxLength)
+			vc.Optional = vc.Optional || c.Optional
+			strings.Replace(&vc.Prefix, c.Prefix)
+			vc.Required = vc.Required || c.Required
+			vc.Funcs = append(vc.Funcs, c.Funcs...)
+		}
+	}
+
+	return vc
+}
+
 func (g GeneratorVerify) Decl(r *Result, ctx GenerationContext, t *Type) {
 	r.AddImport(GOFA + "l10n")
 	r.Printf("func Verify%s(l l10n.Language, %s %s) error {", ctx.SpecName, ctx.VarName, t.String())
 }
 
 func (g GeneratorVerify) Body(r *Result, ctx GenerationContext, t *Type) {
+	var vc VerifyComment
+	if !IsSlice(t.Literal) {
+		vc = MergeVerifyComments(ctx.Comments)
+	}
+
+	Insert(r, ctx, vc.InsertBefore)
 	GenerateType(g, r, ctx, t)
+	Insert(r, ctx, vc.InsertAfter)
+
 	r.Line("return nil")
 }
 
@@ -43,21 +72,8 @@ func (g GeneratorVerify) NamedType(r *Result, ctx GenerationContext, t *Type) {
 }
 
 func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit) {
-	vn := VariableName(ctx.FieldName)
-
-	var vc VerifyComment
-	for _, comment := range ctx.Comments {
-		if c, ok := comment.(VerifyComment); ok {
-			strings.Replace(&vc.Min, c.Min)
-			strings.Replace(&vc.Max, c.Max)
-			strings.Replace(&vc.MinLength, c.MinLength)
-			strings.Replace(&vc.MaxLength, c.MaxLength)
-			vc.Optional = vc.Optional || c.Optional
-			strings.Replace(&vc.Prefix, c.Prefix)
-			vc.Required = vc.Required || c.Required
-			vc.Funcs = append(vc.Funcs, c.Funcs...)
-		}
-	}
+	fieldDescription := FieldName2Description(ctx.FieldName)
+	vc := MergeVerifyComments(ctx.Comments)
 
 	switch lit.(type) {
 	case Int, Float:
@@ -74,7 +90,7 @@ func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit
 			r.Printf("if %s == 0 {", ctx.Deref(ctx.VarName))
 			{
 				r.AddImport(GOFA + "errors")
-				r.Printf(`return errors.New("you must spefify %s")`, vn)
+				r.Printf(`return errors.New("you must spefify %s")`, fieldDescription)
 			}
 			r.Line("}")
 			VerifyWithFuncs(r, ctx, vc.Funcs)
@@ -86,21 +102,21 @@ func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit
 				r.Printf("if (%s < %s) || (%s > %s) {", ctx.Deref(ctx.VarName), minConst.Name, ctx.Deref(ctx.VarName), maxConst.Name)
 				{
 					r.AddImport("fmt")
-					r.Printf(`return fmt.Errorf(l.L("%s must not be less than %%d and greater than %%d"), %s, %s)`, vn, minConst.Name, maxConst.Name)
+					r.Printf(`return fmt.Errorf(l.L("%s must not be less than %%d and greater than %%d"), %s, %s)`, fieldDescription, minConst.Name, maxConst.Name)
 				}
 				r.Line("}")
 			} else if len(vc.Min) > 0 {
 				r.Printf("if %s < %s {", ctx.Deref(ctx.VarName), minConst.Name)
 				{
 					r.AddImport("fmt")
-					r.Printf(`return fmt.Errorf(l.L("%s must not be less than %%d"), %s)`, vn, minConst.Name)
+					r.Printf(`return fmt.Errorf(l.L("%s must not be less than %%d"), %s)`, fieldDescription, minConst.Name)
 				}
 				r.Line("}")
 			} else if len(vc.Max) > 0 {
 				r.Printf("if %s > %s {", ctx.Deref(ctx.VarName), maxConst.Name)
 				{
 					r.AddImport("fmt")
-					r.Printf(`return fmt.Errorf(l.L("%s must be greater than %%d"), %s)`, vn, maxConst.Name)
+					r.Printf(`return fmt.Errorf(l.L("%s must be greater than %%d"), %s)`, fieldDescription, maxConst.Name)
 				}
 				r.Line("}")
 			}
@@ -114,7 +130,7 @@ func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit
 			r.Printf("if len(%s) == 0 {", ctx.Deref(ctx.VarName))
 			{
 				r.AddImport(GOFA + "errors")
-				r.Printf(`return errors.New("you must spefify %s")`, vn)
+				r.Printf(`return errors.New("you must spefify %s")`, fieldDescription)
 			}
 			r.Line("}")
 			VerifyWithFuncs(r, ctx, vc.Funcs)
@@ -136,7 +152,7 @@ func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit
 				{
 					r.AddImport("fmt")
 					r.AddImport(GOFA + "strings")
-					r.Printf(`return fmt.Errorf(l.L("%s length must be between %%d and %%d characters long"), %s, %s)`, vn, minLengthConst.Name, maxLengthConst.Name)
+					r.Printf(`return fmt.Errorf(l.L("%s length must be between %%d and %%d characters long"), %s, %s)`, fieldDescription, minLengthConst.Name, maxLengthConst.Name)
 				}
 				r.Line("}")
 			}
