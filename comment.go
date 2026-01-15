@@ -24,23 +24,25 @@ type GenerateComment struct {
 type FillComment struct {
 	ClampFrom    string
 	ClampTo      string
-	InsertAfter  string
-	InsertBefore string
+	InsertAfter  []string
+	InsertBefore []string
 	Func         string
 	Enum         bool
 	NOP          bool
 }
 
 type VerifyComment struct {
-	Min       string
-	Max       string
-	MinLength string
-	MaxLength string
-	Funcs     []string
-	Prefix    string
-	Optional  bool
-	Required  bool
-	SOA       bool
+	InsertAfter  []string
+	InsertBefore []string
+	Min          string
+	Max          string
+	MinLength    string
+	MaxLength    string
+	Funcs        []string
+	Prefix       string
+	Optional     bool
+	Required     bool
+	SOA          string
 }
 
 type UnionComment struct {
@@ -243,9 +245,9 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 									}
 								}
 							case "insertafter":
-								fc.InsertAfter = rval
+								fc.InsertAfter = append(fc.InsertAfter, rval)
 							case "insertbefore":
-								fc.InsertBefore = rval
+								fc.InsertBefore = append(fc.InsertBefore, rval)
 							case "func":
 								fc.Func = rval
 							}
@@ -280,13 +282,17 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 						case "required":
 							vc.Required = true
 						case "soa":
-							vc.SOA = true
+							vc.SOA = ""
 						}
 					} else {
 						lval = stdstrings.ToLower(strings.TrimSpace(lval))
 						rval = strings.TrimSpace(rval)
 
 						switch lval {
+						case "insertafter":
+							vc.InsertAfter = append(vc.InsertAfter, rval)
+						case "insertbefore":
+							vc.InsertBefore = append(vc.InsertBefore, rval)
 						case "min":
 							vc.Min = rval
 						case "max":
@@ -299,6 +305,8 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 							vc.Funcs = append(vc.Funcs, rval)
 						case "prefix":
 							vc.Prefix = rval
+						case "soa":
+							vc.SOA = rval
 						}
 					}
 

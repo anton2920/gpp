@@ -56,6 +56,26 @@ func VariableName(typeName string) string {
 	return fmt.Sprintf("%c%s", unicode.ToLower(rune(typeName[lastUpper])), typeName[lastUpper+1:])
 }
 
+/* NOTE(anton2920): this supports only ASCII. */
+func FieldName2Description(fieldName string) string {
+	if fieldName == stdstrings.ToUpper(fieldName) {
+		return stdstrings.ToLower(fieldName)
+	}
+
+	words := make([]string, 0, 16)
+	var lastUpper int
+
+	for i := 1; i < len(fieldName); i++ {
+		if unicode.IsUpper(rune(fieldName[i])) {
+			words = append(words, stdstrings.ToLower(fieldName[lastUpper:i]))
+			lastUpper = i
+		}
+	}
+	words = append(words, stdstrings.ToLower(fieldName[lastUpper:len(fieldName)]))
+
+	return stdstrings.Join(words, " ")
+}
+
 func PrependVariableName(s string, vn string) string {
 	for dot := 0; dot < len(s); dot++ {
 		period := strings.FindChar(s[dot:], '.')
@@ -70,6 +90,22 @@ func PrependVariableName(s string, vn string) string {
 		}
 	}
 	return s
+}
+
+func Insert(r *Result, ctx GenerationContext, inserts []string) {
+	for _, insert := range inserts {
+		if strings.StartsEndsWith(insert, "{", "}") {
+			lines := stdstrings.Split(PrependVariableName(insert[1:len(insert)-1], VariableName(ctx.SpecName)), "\n")
+			tabs := r.Tabs
+			for i := 0; i < len(lines); i++ {
+				if strings.EndsWith(lines[i], "}") {
+					r.Tabs++
+				}
+				r.Line(lines[i])
+				r.Tabs = tabs
+			}
+		}
+	}
 }
 
 func Generate(g Generator, r *Result, p *Parser, ts *TypeSpec) {

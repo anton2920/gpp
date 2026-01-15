@@ -85,6 +85,11 @@ var (
 	_ = TypeLit(Struct{})
 )
 
+func IsArray(lit TypeLit) bool {
+	_, ok := lit.(Array)
+	return ok
+}
+
 func IsPrimitive(lit TypeLit) bool {
 	switch lit.(type) {
 	case Int, Float, String, Pointer:
