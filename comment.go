@@ -106,6 +106,13 @@ func ProperCut(s string, sep string, s1 string, s2 string) (string, string, bool
 	return lval + sep + rval[:seppos], rval[seppos+1:], true
 }
 
+func StripIfFound(s string, prefix string, suffix string) (string, bool) {
+	if strings.StartsEndsWith(s, prefix, suffix) {
+		return s[len(prefix) : len(s)-len(suffix)], true
+	}
+	return s, false
+}
+
 func (p *Parser) Comments(comments *[]Comment) bool {
 	const prefix = "gpp:"
 
@@ -160,14 +167,10 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 						gen := url.Path(s)
 						switch {
 						case gen.Match("fill..."):
-							var list string
-							switch {
-							case gen == "":
+							if gen == "" {
 								gc.Generators = append(gc.Generators, GeneratorsFillAll()...)
-							case gen.Match("(%s)", &list):
+							} else if lit, ok := StripIfFound(string(gen), "(", ")"); ok {
 								var done bool
-
-								lit := string(list)
 								for !done {
 									s, rest, ok := strings.Cut(lit, ",")
 									if !ok {
@@ -186,16 +189,10 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 						case gen.Match("verify"):
 							gc.Generators = append(gc.Generators, GeneratorVerify{})
 						case gen.Match("encoding..."):
-							var list string
-							switch {
-							case gen == "":
+							if gen == "" {
 								gc.Generators = append(gc.Generators, GeneratorsEncodingAll()...)
-
-							/* TODO(anton2920): fix case when list is 'json, wire' (with space). */
-							case gen.Match("(%s)", &list):
+							} else if lit, ok := StripIfFound(string(gen), "(", ")"); ok {
 								var done bool
-
-								lit := string(list)
 								for !done {
 									s, rest, ok := strings.Cut(lit, ",")
 									if !ok {
@@ -246,8 +243,8 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 
 							switch lval {
 							case "clamp":
-								if strings.StartsEndsWith(rval, "{", "}") {
-									from, to, ok := strings.Cut(rval[1:len(rval)-1], ",")
+								if rval, ok := StripIfFound(rval, LCompound, RCompound); ok {
+									from, to, ok := strings.Cut(rval, ",")
 									if ok {
 										fc.ClampFrom = from
 										fc.ClampTo = to
