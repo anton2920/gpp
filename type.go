@@ -36,6 +36,15 @@ func Plural(name string) string {
 	return name + "s"
 }
 
+func Singular(name string) string {
+	if strings.EndsWith(name, "ies") {
+		return name[:len(name)-len("ies")] + "y"
+	} else if strings.EndsWith(name, "s") {
+		return name[:len(name)-1]
+	}
+	return name
+}
+
 func (t *Type) PackagePrefix() string {
 	if len(t.Package) > 0 {
 		return t.Package + "."

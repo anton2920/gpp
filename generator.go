@@ -94,8 +94,8 @@ func PrependVariableName(s string, vn string) string {
 
 func Insert(r *Result, ctx GenerationContext, inserts []string) {
 	for _, insert := range inserts {
-		if strings.StartsEndsWith(insert, "{", "}") {
-			lines := stdstrings.Split(PrependVariableName(insert[1:len(insert)-1], VariableName(ctx.SpecName)), "\n")
+		if strings.StartsEndsWith(insert, LCompound, RCompound) {
+			lines := stdstrings.Split(PrependVariableName(insert[len(LCompound):len(insert)-len(RCompound)], VariableName(ctx.SpecName)), "\n")
 			tabs := r.Tabs
 			for i := 0; i < len(lines); i++ {
 				if strings.EndsWith(lines[i], "}") {

@@ -1,10 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"go/token"
 	stdstrings "strings"
 
+	"github.com/anton2920/gofa/bools"
 	"github.com/anton2920/gofa/net/url"
 	"github.com/anton2920/gofa/strings"
 )
@@ -42,12 +42,18 @@ type VerifyComment struct {
 	Prefix       string
 	Optional     bool
 	Required     bool
-	SOA          string
+	SOA          bool
+	SOAPrefix    string
 }
 
 type UnionComment struct {
 	Types []string
 }
+
+const (
+	LCompound = "{{"
+	RCompound = "}}"
+)
 
 func (NOPComment) Comment()      {}
 func (InlineComment) Comment()   {}
@@ -55,29 +61,6 @@ func (GenerateComment) Comment() {}
 func (FillComment) Comment()     {}
 func (VerifyComment) Comment()   {}
 func (UnionComment) Comment()    {}
-
-func FixMyCut(s *string, rest *string, c1 byte, c2 byte) {
-	l := strings.FindChar(*s, c1)
-	if l >= 0 {
-		r := strings.FindChar(*s, c2)
-		if r == -1 {
-			r := strings.FindChar(*rest, c2)
-			if r == -1 {
-				return
-			}
-
-			/* Be greedy: if there are multiple 'c2's close by, find the rightmost one. */
-			r++
-			for (r < len(*rest)) && ((*rest)[r] == c2) {
-				r++
-			}
-			r--
-
-			*s = fmt.Sprintf("%s,%s", *s, (*rest)[:r+1])
-			*rest = (*rest)[r+1:]
-		}
-	}
-}
 
 func AppendComments(cs1 []Comment, cs2 []Comment) []Comment {
 	for _, comment := range cs1 {
@@ -91,6 +74,36 @@ func AppendComments(cs1 []Comment, cs2 []Comment) []Comment {
 		}
 	}
 	return append(cs1, cs2...)
+}
+
+func ProperCut(s string, sep string, s1 string, s2 string) (string, string, bool) {
+	lval, rval, ok := strings.Cut(s, sep)
+	if !ok {
+		return lval, rval, ok
+	}
+
+	s1pos := strings.FindSubstring(lval, s1)
+	if s1pos == -1 {
+		return lval, rval, ok
+	}
+
+	s2pos := strings.FindSubstring(lval, s2)
+	if s2pos >= 0 {
+		return lval, rval, ok
+	}
+
+	s2pos = strings.FindSubstring(rval, s2)
+	if s2pos == -1 {
+		return lval, rval, ok
+	}
+
+	seppos := strings.FindSubstring(rval[s2pos:], sep)
+	seppos += s2pos
+	if (seppos == s2pos-1) || (seppos == len(rval)-1) {
+		return lval + sep + rval[:len(rval)-bools.ToInt(seppos == len(rval)-1)], "", seppos == len(rval)-1
+	}
+
+	return lval + sep + rval[:seppos], rval[seppos+1:], true
 }
 
 func (p *Parser) Comments(comments *[]Comment) bool {
@@ -113,7 +126,7 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 
 		var done bool
 		for !done {
-			s, rest, ok := strings.Cut(lit, ";")
+			s, rest, ok := ProperCut(lit, ";", LCompound, RCompound)
 			if !ok {
 				done = true
 			}
@@ -138,13 +151,11 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 
 					lit := string(fn)
 					for !done {
-						s, rest, ok := strings.Cut(lit, ",")
+						s, rest, ok := ProperCut(lit, ",", "(", ")")
 						if !ok {
 							done = true
 						}
-
 						s = strings.TrimSpace(s)
-						FixMyCut(&s, &rest, '(', ')')
 
 						gen := url.Path(s)
 						switch {
@@ -216,13 +227,11 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 
 				lit := string(fn)
 				for !done {
-					s, rest, ok := strings.Cut(lit, ",")
+					s, rest, ok := ProperCut(lit, ",", LCompound, RCompound)
 					if !ok {
 						done = true
 					}
-
 					s = strings.TrimSpace(s)
-					FixMyCut(&s, &rest, '{', '}')
 
 					switch stdstrings.ToLower(s) {
 					case "enum":
@@ -264,13 +273,11 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 
 				lit := string(fn)
 				for !done {
-					s, rest, ok := strings.Cut(lit, ",")
+					s, rest, ok := ProperCut(lit, ",", LCompound, RCompound)
 					if !ok {
 						done = true
 					}
-
 					s = strings.TrimSpace(s)
-					FixMyCut(&s, &rest, '{', '}')
 
 					lval, rval, ok := strings.Cut(s, "=")
 					if !ok {
@@ -282,7 +289,7 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 						case "required":
 							vc.Required = true
 						case "soa":
-							vc.SOA = ""
+							vc.SOA = true
 						}
 					} else {
 						lval = stdstrings.ToLower(strings.TrimSpace(lval))
@@ -306,7 +313,8 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 						case "prefix":
 							vc.Prefix = rval
 						case "soa":
-							vc.SOA = rval
+							vc.SOA = true
+							vc.SOAPrefix = rval
 						}
 					}
 

@@ -2,6 +2,8 @@ Now:
 
 - Remove methods from 'Generator' in favor of type-switches.
 - Replace 'ctx.Deref(ctx.VarName)' with 'ctx.VarName()'; s/VarName/varName/.
+- Concat InsertBefore and InsertAfter with '\n' in the comment instead of []string.
+- Add type cast in 'fill(values)' for SliceFields.
 
 Later:
 

@@ -76,6 +76,10 @@ func (r *Result) AddConstant(name string, value string) Constant {
 	return constant
 }
 
+func (r *Result) Backspace() {
+	r.Buffer.Truncate(r.Buffer.Len() - 1)
+}
+
 func (r *Result) Dump(w io.Writer) (int64, error) {
 	var buf bytes.Buffer
 	var total int64

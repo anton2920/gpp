@@ -7,7 +7,19 @@ import (
 	"github.com/anton2920/gofa/strings"
 )
 
-type GeneratorVerify struct{}
+type GeneratorVerify struct {
+	LoopVariable string
+	SOA          bool
+}
+
+func VerifyGetFieldName(fieldName string) string {
+	if strings.StartsWith(fieldName, "Min") {
+		fieldName = fieldName[len("Min"):]
+	} else if strings.StartsWith(fieldName, "Max") {
+		fieldName = fieldName[len("Max"):]
+	}
+	return Singular(fieldName)
+}
 
 func VerifyWithFuncs(r *Result, ctx GenerationContext, funcs []string) {
 	for _, fn := range funcs {
@@ -31,6 +43,7 @@ func MergeVerifyComments(comments []Comment) VerifyComment {
 		if c, ok := comment.(VerifyComment); ok {
 			vc.InsertAfter = append(vc.InsertAfter, c.InsertAfter...)
 			vc.InsertBefore = append(vc.InsertBefore, c.InsertBefore...)
+			vc.Funcs = append(vc.Funcs, c.Funcs...)
 			strings.Replace(&vc.Min, c.Min)
 			strings.Replace(&vc.Max, c.Max)
 			strings.Replace(&vc.MinLength, c.MinLength)
@@ -38,7 +51,8 @@ func MergeVerifyComments(comments []Comment) VerifyComment {
 			vc.Optional = vc.Optional || c.Optional
 			strings.Replace(&vc.Prefix, c.Prefix)
 			vc.Required = vc.Required || c.Required
-			vc.Funcs = append(vc.Funcs, c.Funcs...)
+			vc.SOA = vc.SOA || c.SOA
+			strings.Replace(&vc.SOAPrefix, c.SOAPrefix)
 		}
 	}
 
@@ -51,15 +65,14 @@ func (g GeneratorVerify) Decl(r *Result, ctx GenerationContext, t *Type) {
 }
 
 func (g GeneratorVerify) Body(r *Result, ctx GenerationContext, t *Type) {
-	var vc VerifyComment
 	if !IsSlice(t.Literal) {
-		vc = MergeVerifyComments(ctx.Comments)
+		vc := MergeVerifyComments(ctx.Comments)
+		g.SOA = vc.SOA
+
+		Insert(r, ctx, vc.InsertBefore)
+		GenerateType(g, r, ctx, t)
+		Insert(r, ctx, vc.InsertAfter)
 	}
-
-	Insert(r, ctx, vc.InsertBefore)
-	GenerateType(g, r, ctx, t)
-	Insert(r, ctx, vc.InsertAfter)
-
 	r.Line("return nil")
 }
 
@@ -77,14 +90,11 @@ func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit
 
 	switch lit.(type) {
 	case Int, Float:
-		fieldName := ctx.FieldName
-		if strings.StartsWith(ctx.FieldName, "Min") {
-			fieldName = fieldName[len("Min"):]
-		} else if strings.StartsWith(ctx.FieldName, "Max") {
-			fieldName = fieldName[len("Max"):]
-		}
-		minConst := r.AddConstant(fmt.Sprintf("Min%s%s", strings.Or(vc.Prefix, ctx.SpecName), fieldName), vc.Min)
-		maxConst := r.AddConstant(fmt.Sprintf("Max%s%s", strings.Or(vc.Prefix, ctx.SpecName), fieldName), vc.Max)
+		var minConst, maxConst Constant
+
+		fieldName := VerifyGetFieldName(ctx.FieldName)
+		minConst = r.AddConstant(fmt.Sprintf("Min%s%s", strings.Or(vc.Prefix, ctx.SpecName), fieldName), vc.Min)
+		maxConst = r.AddConstant(fmt.Sprintf("Max%s%s", strings.Or(vc.Prefix, ctx.SpecName), fieldName), vc.Max)
 
 		if vc.Required {
 			r.Printf("if %s == 0 {", ctx.Deref(ctx.VarName))
@@ -139,12 +149,7 @@ func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit
 				r.Printf("if len(%s) > 0 {", ctx.Deref(ctx.VarName))
 			}
 			if (len(vc.MinLength) > 0) && (len(vc.MaxLength) > 0) {
-				fieldName := ctx.FieldName
-				if strings.StartsWith(ctx.FieldName, "Min") {
-					fieldName = fieldName[len("Min"):]
-				} else if strings.StartsWith(ctx.FieldName, "Max") {
-					fieldName = fieldName[len("Max"):]
-				}
+				fieldName := VerifyGetFieldName(ctx.FieldName)
 				minLengthConst := r.AddConstant(fmt.Sprintf("Min%s%sLen", strings.Or(vc.Prefix, ctx.SpecName), fieldName), vc.MinLength)
 				maxLengthConst := r.AddConstant(fmt.Sprintf("Max%s%sLen", strings.Or(vc.Prefix, ctx.SpecName), fieldName), vc.MaxLength)
 
@@ -165,12 +170,48 @@ func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit
 }
 
 func (g GeneratorVerify) Struct(r *Result, ctx GenerationContext, s *Struct) {
+	soa := (g.SOA) && len(s.Fields) > 0
+	if soa {
+		field0 := fmt.Sprintf("%s.%s", ctx.VarName, s.Fields[0].Name)
+
+		/* NOTE(anton2920): this ignores banned fields. */
+		if len(s.Fields) >= 2 {
+			field1 := fmt.Sprintf("%s.%s", ctx.VarName, s.Fields[1].Name)
+
+			tabs := r.Tabs
+			r.Printf("if (len(%s) != len(%s))", field0, field1)
+			r.Backspace()
+			r.Tabs = 0
+			for _, field := range s.Fields[2:] {
+				r.Printf(" || (len(%s) != len(%s.%s))", field0, ctx.VarName, field.Name)
+				r.Backspace()
+			}
+			r.Line(" {")
+			r.Tabs = tabs + 1
+			{
+				r.AddImport(GOFA + "errors")
+				r.AddImport(GOFA + "l10n")
+				r.Printf(`return errors.New(l.L("incorrect number of fields"))`)
+			}
+			r.Line("}")
+		}
+
+		i := ctx.LoopVar()
+		g.LoopVariable = i
+		r.Printf("for %s := 0; %s < len(%s); %s++ {", i, i, field0, i)
+	}
 	GenerateStructFields(g, r, ctx, s.Fields, nil)
+	if soa {
+		r.Line("}")
+	}
 }
 
 func (g GeneratorVerify) StructField(r *Result, ctx GenerationContext, field *StructField, lit TypeLit) {
 	for _, comment := range field.Comments {
 		if _, ok := comment.(VerifyComment); ok {
+			if g.SOA {
+				ctx = ctx.WithVar("%s[%s]", ctx.VarName, g.LoopVariable)
+			}
 			GenerateStructField(g, r, ctx, field, lit)
 			break
 		}
@@ -185,6 +226,7 @@ func (g GeneratorVerify) Array(r *Result, ctx GenerationContext, a *Array) {
 }
 
 func (g GeneratorVerify) Slice(r *Result, ctx GenerationContext, s *Slice) {
+	GenerateArrayElement(g, r, ctx, &s.Element)
 }
 
 func (g GeneratorVerify) Union(r *Result, ctx GenerationContext, u *Union) {
