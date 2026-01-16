@@ -13,11 +13,15 @@ type GeneratorFillValues struct {
 }
 
 func FillWithFunc(r *Result, ctx GenerationContext, fn string) {
-	if !strings.StartsWith(fn, "{") {
-		fn = fmt.Sprintf(`%s(vs.Get("%s"))`, fn, ctx.FieldName)
+	var ok bool
+
+	v := fmt.Sprintf(`vs.Get("%s")`, ctx.FieldName)
+	if fn, ok = StripIfFound(fn, LCompound, RCompound); !ok {
+		fn = fmt.Sprintf(`%s(%s)`, fn, v)
 	} else {
-		fn = stdstrings.Replace(fn[1:len(fn)-1], "?", ctx.FieldName, 1)
+		fn = stdstrings.Replace(fn, "?", v, 1)
 	}
+
 	r.Printf("%s = %s", ctx.VarName, fn)
 }
 
@@ -116,10 +120,7 @@ func (g GeneratorFillValues) PrimitiveSlice(r *Result, ctx GenerationContext, li
 	fc := MergeFillComments(ctx.Comments)
 	vn := VariableName(ctx.SpecName)
 
-	/* TODO(anton2920): handle Func with {?}. */
 	switch lit.(type) {
-	case Bool:
-
 	case Int, Float:
 		const tmp = "tmp"
 
@@ -134,10 +135,15 @@ func (g GeneratorFillValues) PrimitiveSlice(r *Result, ctx GenerationContext, li
 				var app string
 
 				if (!fc.Enum) && (len(fc.ClampFrom)+len(fc.ClampTo) == 0) {
+					/* TODO(anton2920): handle Func with {{?}}. */
 					fn := fc.Func
 					if len(fc.Func) == 0 {
 						r.AddImport(GOFA + "strings")
-						fn = "strings.ToInt"
+						if _, ok := lit.(Int); ok {
+							fn = "strings.ToInt"
+						} else {
+							fn = "strings.ToFloat"
+						}
 					}
 					if (len(ctx.CastName) == 0) || (litName == ctx.CastName) {
 						app = fmt.Sprintf("%s(%s[%s])", fn, tmp, i)
@@ -158,6 +164,7 @@ func (g GeneratorFillValues) PrimitiveSlice(r *Result, ctx GenerationContext, li
 		}
 		r.Line("}")
 	case String:
+		/* TODO(anton2920): handle Func. */
 		r.Printf(`%s = vs.GetMany("%s")`, ctx.VarName, ctx.FieldName)
 	}
 }
