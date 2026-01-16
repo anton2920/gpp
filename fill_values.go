@@ -142,7 +142,7 @@ func (g GeneratorFillValues) PrimitiveSlice(r *Result, ctx GenerationContext, li
 					if (len(ctx.CastName) == 0) || (litName == ctx.CastName) {
 						app = fmt.Sprintf("%s(%s[%s])", fn, tmp, i)
 					} else {
-						app = fmt.Sprintf("%s(%s(%s(%s[%s])))", ctx.CastName, fn, litName, tmp, i)
+						app = fmt.Sprintf("%s(%s(%s[%s]))", ctx.CastName, fn, tmp, i)
 					}
 				} else if fc.Enum {
 					r.AddImport(GOFA + "ints")
