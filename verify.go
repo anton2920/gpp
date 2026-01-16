@@ -12,21 +12,39 @@ type GeneratorVerify struct {
 	SOA          bool
 }
 
-func VerifyGetFieldName(fieldName string) string {
+func (g GeneratorVerify) NewConstant(r *Result, specName string, fieldName string, prefix string, value string, format string) Constant {
+	var c Constant
+
 	if strings.StartsWith(fieldName, "Min") {
 		fieldName = fieldName[len("Min"):]
 	} else if strings.StartsWith(fieldName, "Max") {
 		fieldName = fieldName[len("Max"):]
 	}
-	return Singular(fieldName)
+	fieldName = Singular(fieldName)
+
+	if expr, ok := StripIfFound(value, LCompound, RCompound); !ok {
+		c = r.AddConstant(fmt.Sprintf(format, strings.Or(prefix, specName), fieldName), value)
+	} else {
+		vn := VariableName(specName)
+		name := PrependVariableName(expr, vn)
+
+		if (g.SOA) && (name != expr) && (name == Singular(name)) {
+			name = fmt.Sprintf("%s[%s]", Plural(name), g.LoopVariable)
+		}
+		c = Constant{Name: name}
+	}
+
+	return c
 }
 
 func VerifyWithFuncs(r *Result, ctx GenerationContext, funcs []string) {
+	var ok bool
+
 	for _, fn := range funcs {
-		if !strings.StartsWith(fn, "{") {
+		if fn, ok = StripIfFound(fn, LCompound, RCompound); !ok {
 			fn = fmt.Sprintf("%s(l, %s)", fn, ctx.Deref(ctx.VarName))
 		} else {
-			fn = stdstrings.Replace(fn[1:len(fn)-1], "?", ctx.Deref(ctx.VarName), 1)
+			fn = stdstrings.Replace(fn, "?", ctx.Deref(ctx.VarName), 1)
 		}
 		r.Printf("if err := %s; err != nil {", fn)
 		{
@@ -85,16 +103,19 @@ func (g GeneratorVerify) NamedType(r *Result, ctx GenerationContext, t *Type) {
 }
 
 func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit) {
-	fieldDescription := FieldName2Description(ctx.FieldName)
+	var loopVariable string
+
 	vc := MergeVerifyComments(ctx.Comments)
+	fieldDescription := FieldName2Description(ctx.FieldName)
+	if g.SOA {
+		fieldDescription = fmt.Sprintf("%s %%d: %s", strings.Or(FieldName2Description(vc.SOAPrefix), Singular(FieldName2Description(ctx.SpecName))), Singular(fieldDescription))
+		loopVariable = fmt.Sprintf(", %s+1", g.LoopVariable)
+	}
 
 	switch lit.(type) {
 	case Int, Float:
-		var minConst, maxConst Constant
-
-		fieldName := VerifyGetFieldName(ctx.FieldName)
-		minConst = r.AddConstant(fmt.Sprintf("Min%s%s", strings.Or(vc.Prefix, ctx.SpecName), fieldName), vc.Min)
-		maxConst = r.AddConstant(fmt.Sprintf("Max%s%s", strings.Or(vc.Prefix, ctx.SpecName), fieldName), vc.Max)
+		minConst := g.NewConstant(r, ctx.SpecName, ctx.FieldName, vc.Prefix, vc.Min, "Min%s%s")
+		maxConst := g.NewConstant(r, ctx.SpecName, ctx.FieldName, vc.Prefix, vc.Max, "Max%s%s")
 
 		if vc.Required {
 			r.Printf("if %s == 0 {", ctx.Deref(ctx.VarName))
@@ -106,27 +127,27 @@ func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit
 			VerifyWithFuncs(r, ctx, vc.Funcs)
 		} else {
 			if vc.Optional {
-				r.Printf("if %s > 0 {", ctx.Deref(ctx.VarName))
+				r.Printf("if %s != 0 {", ctx.Deref(ctx.VarName))
 			}
 			if (len(vc.Min) > 0) && (len(vc.Max) > 0) {
 				r.Printf("if (%s < %s) || (%s > %s) {", ctx.Deref(ctx.VarName), minConst.Name, ctx.Deref(ctx.VarName), maxConst.Name)
 				{
 					r.AddImport("fmt")
-					r.Printf(`return fmt.Errorf(l.L("%s must not be less than %%d and greater than %%d"), %s, %s)`, fieldDescription, minConst.Name, maxConst.Name)
+					r.Printf(`return fmt.Errorf(l.L("%s must not be less than %%v and greater than %%v")%s, %s, %s)`, fieldDescription, loopVariable, minConst.Name, maxConst.Name)
 				}
 				r.Line("}")
 			} else if len(vc.Min) > 0 {
 				r.Printf("if %s < %s {", ctx.Deref(ctx.VarName), minConst.Name)
 				{
 					r.AddImport("fmt")
-					r.Printf(`return fmt.Errorf(l.L("%s must not be less than %%d"), %s)`, fieldDescription, minConst.Name)
+					r.Printf(`return fmt.Errorf(l.L("%s must not be less than %%v")%s, %s)`, fieldDescription, loopVariable, minConst.Name)
 				}
 				r.Line("}")
 			} else if len(vc.Max) > 0 {
 				r.Printf("if %s > %s {", ctx.Deref(ctx.VarName), maxConst.Name)
 				{
 					r.AddImport("fmt")
-					r.Printf(`return fmt.Errorf(l.L("%s must be greater than %%d"), %s)`, fieldDescription, maxConst.Name)
+					r.Printf(`return fmt.Errorf(l.L("%s must be greater than %%v")%s, %s)`, fieldDescription, loopVariable, maxConst.Name)
 				}
 				r.Line("}")
 			}
@@ -146,18 +167,17 @@ func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit
 			VerifyWithFuncs(r, ctx, vc.Funcs)
 		} else {
 			if vc.Optional {
-				r.Printf("if len(%s) > 0 {", ctx.Deref(ctx.VarName))
+				r.Printf("if len(%s) != 0 {", ctx.Deref(ctx.VarName))
 			}
 			if (len(vc.MinLength) > 0) && (len(vc.MaxLength) > 0) {
-				fieldName := VerifyGetFieldName(ctx.FieldName)
-				minLengthConst := r.AddConstant(fmt.Sprintf("Min%s%sLen", strings.Or(vc.Prefix, ctx.SpecName), fieldName), vc.MinLength)
-				maxLengthConst := r.AddConstant(fmt.Sprintf("Max%s%sLen", strings.Or(vc.Prefix, ctx.SpecName), fieldName), vc.MaxLength)
+				minLengthConst := g.NewConstant(r, ctx.SpecName, ctx.FieldName, vc.Prefix, vc.MinLength, "Min%s%sLen")
+				maxLengthConst := g.NewConstant(r, ctx.SpecName, ctx.FieldName, vc.Prefix, vc.MaxLength, "Max%s%sLen")
 
 				r.Printf("if !strings.LengthInRange(%s, %s, %s) {", ctx.Deref(ctx.VarName), minLengthConst.Name, maxLengthConst.Name)
 				{
 					r.AddImport("fmt")
 					r.AddImport(GOFA + "strings")
-					r.Printf(`return fmt.Errorf(l.L("%s length must be between %%d and %%d characters long"), %s, %s)`, fieldDescription, minLengthConst.Name, maxLengthConst.Name)
+					r.Printf(`return fmt.Errorf(l.L("%s length must be between %%d and %%d characters long")%s, %s, %s)`, fieldDescription, loopVariable, minLengthConst.Name, maxLengthConst.Name)
 				}
 				r.Line("}")
 			}
@@ -191,7 +211,7 @@ func (g GeneratorVerify) Struct(r *Result, ctx GenerationContext, s *Struct) {
 			{
 				r.AddImport(GOFA + "errors")
 				r.AddImport(GOFA + "l10n")
-				r.Printf(`return errors.New(l.L("incorrect number of fields"))`)
+				r.Printf(`return errors.New(l.L("number of all fields should be the same"))`)
 			}
 			r.Line("}")
 		}

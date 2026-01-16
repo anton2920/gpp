@@ -1,10 +1,18 @@
 package main
 
+type Date int64
+
 //gpp:generate: fill(values), verify
 //gpp:verify: InsertBefore={{now := GetServerTime()}}, SOA
 type DateRanges struct {
-	StartDates []int64 //gpp:fill: Func=ParseDate; verify: Max={{now}}
-	EndDates   []int64 //gpp:fill: Func=ParseDate; verify: Min={{.StartDate}}, Max={{now}}, Optional
+	StartDates []Date //gpp:fill: Func={{ParseDate("2006-01-02", ?)}}; verify: Max={{now}}
+	EndDates   []Date /*gpp:fill: Func=ParseDate; verify: Min={{.StartDate}}, Max={{now}},
+	Func={{VerifyDate(.StartDate, ?)}}, Optional*/
+}
+
+//gpp:generate: fill(values)
+type Foo struct {
+	Permissions Permission //gpp:fill: Func={GetPermissionsFromValues(vs.GetMany("?"))}
 }
 
 /*
