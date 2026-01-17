@@ -9,38 +9,37 @@ import (
 
 type GeneratorVerify struct {
 	LoopVariable string
+	SOAPrefix    string
 	SOA          bool
 }
 
 func (g GeneratorVerify) NewConstant(r *Result, specName string, fieldName string, prefix string, value string, format string) Constant {
 	var c Constant
 
-	if strings.StartsWith(fieldName, "Min") {
-		fieldName = fieldName[len("Min"):]
-	} else if strings.StartsWith(fieldName, "Max") {
-		fieldName = fieldName[len("Max"):]
-	}
-	fieldName = Singular(fieldName)
-
-	if expr, ok := StripIfFound(value, LCompound, RCompound); !ok {
-		c = r.AddConstant(fmt.Sprintf(format, strings.Or(prefix, specName), fieldName), value)
-	} else {
+	if expr, ok := StripIfFound(value, LCompound, RCompound); ok {
 		vn := VariableName(specName)
-		name := PrependVariableName(expr, vn)
+		name := PrependVariableNameAndPrefix(expr, vn, g.SOAPrefix)
 
 		if (g.SOA) && (name != expr) && (name == Singular(name)) {
 			name = fmt.Sprintf("%s[%s]", Plural(name), g.LoopVariable)
 		}
 		c = Constant{Name: name}
+	} else {
+		if strings.StartsWith(fieldName, "Min") {
+			fieldName = fieldName[len("Min"):]
+		} else if strings.StartsWith(fieldName, "Max") {
+			fieldName = fieldName[len("Max"):]
+		}
+		fieldName = Singular(fieldName)
+		c = r.AddConstant(fmt.Sprintf(format, strings.Or(prefix, specName), fieldName), value)
 	}
 
 	return c
 }
 
 func VerifyWithFuncs(r *Result, ctx GenerationContext, funcs []string) {
-	var ok bool
-
 	for _, fn := range funcs {
+		var ok bool
 		if fn, ok = StripIfFound(fn, LCompound, RCompound); !ok {
 			fn = fmt.Sprintf("%s(l, %s)", fn, ctx.Deref(ctx.VarName))
 		} else {
@@ -86,6 +85,7 @@ func (g GeneratorVerify) Body(r *Result, ctx GenerationContext, t *Type) {
 	if !IsSlice(t.Literal) {
 		vc := MergeVerifyComments(ctx.Comments)
 		g.SOA = vc.SOA
+		g.SOAPrefix = vc.SOAPrefix
 
 		Insert(r, ctx, vc.InsertBefore)
 		GenerateType(g, r, ctx, t)
@@ -105,12 +105,15 @@ func (g GeneratorVerify) NamedType(r *Result, ctx GenerationContext, t *Type) {
 func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit) {
 	var loopVariable string
 
-	vc := MergeVerifyComments(ctx.Comments)
 	fieldDescription := FieldName2Description(ctx.FieldName)
 	if g.SOA {
-		fieldDescription = fmt.Sprintf("%s %%d: %s", strings.Or(FieldName2Description(vc.SOAPrefix), Singular(FieldName2Description(ctx.SpecName))), Singular(fieldDescription))
+		prefix := FieldName2Description(g.SOAPrefix)
+		desc, _ := StripIfFound(Singular(fieldDescription), prefix+" ", "")
+		fieldDescription = fmt.Sprintf("%s %%d: %s", strings.Or(prefix, Singular(FieldName2Description(ctx.SpecName))), desc)
 		loopVariable = fmt.Sprintf(", %s+1", g.LoopVariable)
 	}
+
+	vc := MergeVerifyComments(ctx.Comments)
 
 	switch lit.(type) {
 	case Int, Float:
