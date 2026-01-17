@@ -22,13 +22,12 @@ type GenerateComment struct {
 }
 
 type FillComment struct {
-	ClampFrom    string
-	ClampTo      string
 	InsertAfter  []string
 	InsertBefore []string
 	Func         string
 	Enum         bool
 	NOP          bool
+	Optional     bool
 }
 
 type VerifyComment struct {
@@ -235,6 +234,8 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 						fc.Enum = true
 					case "nop":
 						fc.NOP = true
+					case "optional":
+						fc.Optional = true
 					default:
 						lval, rval, ok := strings.Cut(s, "=")
 						if ok {
@@ -242,14 +243,6 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 							rval = strings.TrimSpace(rval)
 
 							switch lval {
-							case "clamp":
-								if rval, ok := StripIfFound(rval, LCompound, RCompound); ok {
-									from, to, ok := strings.Cut(rval, ",")
-									if ok {
-										fc.ClampFrom = from
-										fc.ClampTo = to
-									}
-								}
 							case "insertafter":
 								fc.InsertAfter = append(fc.InsertAfter, rval)
 							case "insertbefore":

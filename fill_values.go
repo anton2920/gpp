@@ -5,6 +5,7 @@ import (
 	stdstrings "strings"
 	"unicode"
 
+	"github.com/anton2920/gofa/bools"
 	"github.com/anton2920/gofa/strings"
 )
 
@@ -19,7 +20,7 @@ func FillWithFunc(r *Result, ctx GenerationContext, fn string) {
 	if fn, ok = StripIfFound(fn, LCompound, RCompound); !ok {
 		fn = fmt.Sprintf(`%s(%s)`, fn, v)
 	} else {
-		fn = stdstrings.Replace(fn, "?", v, 1)
+		fn = PrependVariableName(stdstrings.Replace(fn, "?", v, 1), VariableName(ctx.SpecName))
 	}
 
 	r.Printf("%s = %s", ctx.VarName, fn)
@@ -30,12 +31,11 @@ func MergeFillComments(comments []Comment) FillComment {
 
 	for _, comment := range comments {
 		if c, ok := comment.(FillComment); ok {
-			strings.Replace(&fc.ClampFrom, c.ClampFrom)
-			strings.Replace(&fc.ClampTo, c.ClampTo)
 			fc.InsertAfter = append(fc.InsertAfter, c.InsertAfter...)
 			fc.InsertBefore = append(fc.InsertBefore, c.InsertBefore...)
 			fc.Enum = fc.Enum || c.Enum
 			strings.Replace(&fc.Func, c.Func)
+			fc.Optional = fc.Optional || c.Optional
 		}
 	}
 
@@ -87,7 +87,7 @@ func (g GeneratorFillValues) Primitive(r *Result, ctx GenerationContext, lit Typ
 		case Int, Float:
 			litName := lit.String()
 
-			if ((len(ctx.CastName) == 0) || (litName == ctx.CastName)) && (!fc.Enum) && (len(fc.ClampFrom)+len(fc.ClampTo) == 0) {
+			if (!fc.Enum) && ((len(ctx.CastName) == 0) || (litName == ctx.CastName)) {
 				r.Printf(`%s, _ = vs.Get%c%s("%s")`, ctx.Deref(ctx.VarName), unicode.ToUpper(rune(litName[0])), litName[1:], ctx.FieldName)
 			} else {
 				const tmp = "tmp"
@@ -95,17 +95,11 @@ func (g GeneratorFillValues) Primitive(r *Result, ctx GenerationContext, lit Typ
 				r.Line("{")
 				{
 					r.Printf(`%s, _ := vs.Get%c%s("%s")`, tmp, unicode.ToUpper(rune(litName[0])), litName[1:], ctx.FieldName)
-					if len(fc.ClampFrom)+len(fc.ClampTo) > 0 {
-						vn := VariableName(ctx.SpecName)
-						r.AddImport(GOFA + "ints")
-						r.Printf("%s = %s(ints.Clamp(int(%s), %s, %s))", ctx.Deref(ctx.VarName), litName, tmp, PrependVariableName(fc.ClampFrom, vn), PrependVariableName(fc.ClampTo, vn))
+					if !fc.Enum {
+						r.Printf("%s = %s(%s)", ctx.VarName, ctx.CastName, tmp)
 					} else {
-						if !fc.Enum {
-							r.Printf("%s = %s(%s)", ctx.VarName, ctx.CastName, tmp)
-						} else {
-							r.AddImport(GOFA + "ints")
-							r.Printf("%s = %s(ints.Clamp(int(%s), 1, int(%sCount)))", ctx.Deref(ctx.VarName), ctx.CastName, tmp, ctx.CastName)
-						}
+						r.AddImport(GOFA + "ints")
+						r.Printf("%s = %s(ints.Clamp(int(%s), %d, int(%sCount)))", ctx.Deref(ctx.VarName), ctx.CastName, tmp, bools.ToInt(!fc.Optional), ctx.CastName)
 					}
 				}
 				r.Line("}")
@@ -118,7 +112,6 @@ func (g GeneratorFillValues) Primitive(r *Result, ctx GenerationContext, lit Typ
 
 func (g GeneratorFillValues) PrimitiveSlice(r *Result, ctx GenerationContext, lit TypeLit) {
 	fc := MergeFillComments(ctx.Comments)
-	vn := VariableName(ctx.SpecName)
 
 	switch lit.(type) {
 	case Int, Float:
@@ -134,7 +127,10 @@ func (g GeneratorFillValues) PrimitiveSlice(r *Result, ctx GenerationContext, li
 			{
 				var app string
 
-				if (!fc.Enum) && (len(fc.ClampFrom)+len(fc.ClampTo) == 0) {
+				if fc.Enum {
+					r.AddImport(GOFA + "ints")
+					app = fmt.Sprintf("%s(ints.Clamp(strings.ToInt(%s[%s]), 1, int(%sCount)))", ctx.CastName, tmp, i, ctx.CastName)
+				} else {
 					/* TODO(anton2920): handle Func with {{?}}. */
 					fn := fc.Func
 					if len(fc.Func) == 0 {
@@ -150,15 +146,9 @@ func (g GeneratorFillValues) PrimitiveSlice(r *Result, ctx GenerationContext, li
 					} else {
 						app = fmt.Sprintf("%s(%s(%s[%s]))", ctx.CastName, fn, tmp, i)
 					}
-				} else if fc.Enum {
-					r.AddImport(GOFA + "ints")
-					app = fmt.Sprintf("%s(ints.Clamp(int(%s), 1, int(%sCount)))", ctx.CastName, tmp, ctx.CastName)
-				} else if len(fc.ClampFrom)+len(fc.ClampTo) > 0 {
-					r.AddImport(GOFA + "ints")
-					app = fmt.Sprintf("%s(ints.Clamp(int(%s), %s, %s))", litName, tmp, PrependVariableName(fc.ClampFrom, vn), PrependVariableName(fc.ClampTo, vn))
 				}
 
-				r.Printf("%s[%s], _ = append(%s[%s], %s)", ctx.Deref(ctx.VarName), i, ctx.Deref(ctx.VarName), i, app)
+				r.Printf("%s = append(%s, %s)", ctx.Deref(ctx.VarName), ctx.Deref(ctx.VarName), app)
 			}
 			r.Line("}")
 		}

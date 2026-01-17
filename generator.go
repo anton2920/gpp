@@ -76,7 +76,7 @@ func FieldName2Description(fieldName string) string {
 	return stdstrings.Join(words, " ")
 }
 
-func PrependVariableName(s string, vn string) string {
+func PrependVariableNameAndPrefix(s string, vn string, prefix string) string {
 	for dot := 0; dot < len(s); dot++ {
 		period := strings.FindChar(s[dot:], '.')
 		if period == -1 {
@@ -85,11 +85,15 @@ func PrependVariableName(s string, vn string) string {
 		dot += period
 
 		if (dot == 0) || (s[dot-1] == ' ') || (s[dot-1] == '(') || (s[dot-1] == '[') || (s[dot-1] == '{') || (s[dot-1] == '\t') {
-			s = s[:dot] + vn + s[dot:]
-			dot += len(vn)
+			s = s[:dot] + vn + s[dot:dot+1] + prefix + s[dot+1:]
+			dot += len(vn) + len(prefix)
 		}
 	}
 	return s
+}
+
+func PrependVariableName(s string, vn string) string {
+	return PrependVariableNameAndPrefix(s, vn, "")
 }
 
 func Insert(r *Result, ctx GenerationContext, inserts []string) {
@@ -221,14 +225,14 @@ func GenerateStructFields(g Generator, r *Result, ctx GenerationContext, fields 
 							f.Type.Package = field.Type.Package
 						}
 					}
-					GenerateStructFields(g, r, ctx.WithVar(name).WithComments(field.Comments), s.Fields, currentFields)
+					GenerateStructFields(g, r, ctx.WithVar("%s", name).WithComments(field.Comments), s.Fields, currentFields)
 					continue
 				}
 			}
 		}
 
 		if _, ok := forbiddenFields[ctx.FieldName]; !ok {
-			g.StructField(r, ctx.WithVar(name).WithComments(field.Comments), &field, lit)
+			g.StructField(r, ctx.WithVar("%s", name).WithComments(field.Comments), &field, lit)
 			if forbiddenFields != nil {
 				forbiddenFields[ctx.FieldName] = struct{}{}
 			}
