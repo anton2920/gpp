@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"go/token"
+	"os"
 	stdstrings "strings"
 
 	"github.com/anton2920/gofa/bools"
@@ -254,6 +256,11 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 					}
 
 					lit = rest
+				}
+
+				if (fc.Optional) && (!fc.Enum) {
+					fmt.Fprintf(os.Stderr, "WARNING: ignoring 'Optional' without 'Enum'")
+					fc.Optional = false
 				}
 
 				*comments = append(*comments, fc)
