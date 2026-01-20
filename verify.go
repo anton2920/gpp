@@ -82,15 +82,16 @@ func (g GeneratorVerify) Decl(r *Result, ctx GenerationContext, t *Type) {
 }
 
 func (g GeneratorVerify) Body(r *Result, ctx GenerationContext, t *Type) {
+	var vc VerifyComment
 	if !IsSlice(t.Literal) {
-		vc := MergeVerifyComments(ctx.Comments)
+		vc = MergeVerifyComments(ctx.Comments)
 		g.SOA = vc.SOA
 		g.SOAPrefix = vc.SOAPrefix
-
-		Insert(r, ctx, vc.InsertBefore)
-		GenerateType(g, r, ctx, t)
-		Insert(r, ctx, vc.InsertAfter)
 	}
+
+	Insert(r, ctx, vc.InsertBefore)
+	GenerateType(g, r, ctx, t)
+	Insert(r, ctx, vc.InsertAfter)
 	r.Line("return nil")
 }
 
@@ -246,11 +247,46 @@ func (g GeneratorVerify) StructFieldSkip(field *StructField) bool {
 }
 
 func (g GeneratorVerify) Array(r *Result, ctx GenerationContext, a *Array) {
+	i := ctx.LoopVar()
+	r.Printf("for %s := 0; %s < len(%s); %s++ {", i, i, ctx.VarName, i)
+	{
+		GenerateArrayElement(g, r, ctx.WithVar("%s[%s]", ctx.VarName, i), &a.Element)
+	}
+	r.Line("}")
 }
 
 func (g GeneratorVerify) Slice(r *Result, ctx GenerationContext, s *Slice) {
-	GenerateArrayElement(g, r, ctx, &s.Element)
+	if g.SOA {
+		GenerateArrayElement(g, r, ctx, &s.Element)
+	} else {
+		a := Array{Element: s.Element}
+		g.Array(r, ctx, &a)
+	}
 }
 
 func (g GeneratorVerify) Union(r *Result, ctx GenerationContext, u *Union) {
+	r.Printf("switch %s := %s.(type) {", ctx.VarName, ctx.Deref(ctx.VarName))
+	{
+		for _, name := range u.Types {
+			var star string
+			if name[0] != '*' {
+				ctx.Autoderef = true
+			} else {
+				ctx.Autoderef = false
+				name = name[1:]
+				star = "*"
+			}
+			t := Type{Name: name}
+
+			r.Printf("case %s%s:", star, t)
+			{
+				if name != "nil" {
+					g.NamedType(r, ctx, &t)
+				}
+			}
+			r.Tabs--
+		}
+	}
+	r.Tabs++
+	r.Line("}")
 }
