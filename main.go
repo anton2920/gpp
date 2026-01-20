@@ -170,6 +170,8 @@ func main() {
 				if spec.Comments != nil {
 					for _, comment := range spec.Comments {
 						switch comment := comment.(type) {
+						case ImportComment:
+							r.AddImport(comment.Path)
 						case GenerateComment:
 							for _, g := range comment.Generators {
 								Generate(g, &r, &p, &spec)

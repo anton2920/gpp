@@ -17,6 +17,10 @@ type Comment interface {
 
 type NOPComment struct{}
 
+type ImportComment struct {
+	Path string
+}
+
 type InlineComment struct{}
 
 type GenerateComment struct {
@@ -57,6 +61,7 @@ const (
 )
 
 func (NOPComment) Comment()      {}
+func (ImportComment) Comment()   {}
 func (InlineComment) Comment()   {}
 func (GenerateComment) Comment() {}
 func (FillComment) Comment()     {}
@@ -145,6 +150,27 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 			case fn.Match("nop"):
 				*comments = []Comment{NOPComment{}}
 				return true
+			case fn.Match("import:..."):
+				var done bool
+
+				lit := string(fn)
+				for !done {
+					s, rest, ok := strings.Cut(lit, ",")
+					if !ok {
+						done = true
+					}
+
+					path := strings.TrimSpace(s)
+					if s, ok := StripIfFound(path, "GOFA+\"", "\""); ok {
+						path = GOFA + s
+					} else if s, ok := StripIfFound(path, "\"", "\""); ok {
+						path = s
+					}
+
+					lit = rest
+
+					*comments = append(*comments, ImportComment{Path: path})
+				}
 			case fn.Match("inline"):
 				*comments = []Comment{InlineComment{}}
 				return true
