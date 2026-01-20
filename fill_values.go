@@ -196,4 +196,28 @@ func (g GeneratorFillValues) Slice(r *Result, ctx GenerationContext, s *Slice) {
 }
 
 func (g GeneratorFillValues) Union(r *Result, ctx GenerationContext, u *Union) {
+	r.Printf("switch %s := %s.(type) {", ctx.VarName, ctx.Deref(ctx.VarName))
+	{
+		for _, name := range u.Types {
+			var star string
+			if name[0] != '*' {
+				ctx.Autoderef = true
+			} else {
+				ctx.Autoderef = false
+				name = name[1:]
+				star = "*"
+			}
+			t := Type{Name: name}
+
+			r.Printf("case %s%s:", star, t)
+			{
+				if name != "nil" {
+					g.NamedType(r, ctx, &t)
+				}
+			}
+			r.Tabs--
+		}
+	}
+	r.Tabs++
+	r.Line("}")
 }
