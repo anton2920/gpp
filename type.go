@@ -144,7 +144,7 @@ func (p *Parser) TypeSpec(ts *TypeSpec) bool {
 	p.Comments(&comments)
 	p.Error = nil
 
-	ts.Comments = append(ts.Comments, comments...)
+	ts.Comments = AppendComments(ts.Comments, comments)
 
 	if p.Ident(&ts.Name) {
 		pos := p.Position
