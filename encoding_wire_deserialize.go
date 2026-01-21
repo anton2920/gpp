@@ -48,7 +48,7 @@ func (g GeneratorEncodingWireDeserialize) StructFieldSkip(field *StructField) bo
 func (g GeneratorEncodingWireDeserialize) Array(r *Result, ctx GenerationContext, a *Array) {
 	i := ctx.LoopVar()
 
-	if a.Size == 0 {
+	if len(a.Size) == 0 {
 		r.Printf("%s = make([]%s, d.%c%s())", ctx.VarName, a.Element.String(), unicode.ToUpper(rune(EncodingWireSliceLengthType[0])), EncodingWireSliceLengthType[1:])
 	}
 	r.Printf("for %s := 0; %s < len(%s); %s++ {", i, i, ctx.VarName, i)

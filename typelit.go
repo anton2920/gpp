@@ -13,7 +13,7 @@ type TypeLit interface {
 }
 
 type Array struct {
-	Size    int
+	Size    string
 	Element Type
 }
 
@@ -182,11 +182,18 @@ func (u Union) String() string {
 
 func (p *Parser) Array(a *Array) bool {
 	if p.Token(token.LBRACK) {
-		if p.IntLit(&a.Size) {
-			if p.Token(token.RBRACK) {
-				if p.Type(&a.Element) {
-					return true
-				}
+		var size int
+		if p.IntLit(&size) {
+			a.Size = strconv.Itoa(size)
+		} else {
+			p.Error = nil
+			if !p.Ident(&a.Size) {
+				return false
+			}
+		}
+		if p.Token(token.RBRACK) {
+			if p.Type(&a.Element) {
+				return true
 			}
 		}
 	}
@@ -422,7 +429,7 @@ func (p *Parser) TypeLit(tl *TypeLit) bool {
 		return false
 	case token.LBRACK:
 		switch p.Next().GoToken {
-		case token.INT:
+		case token.INT, token.IDENT:
 			p.Position = pos
 			var a Array
 			if p.Array(&a) {

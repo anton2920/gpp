@@ -43,7 +43,7 @@ func (g GeneratorEncodingWireSerialize) StructFieldSkip(field *StructField) bool
 func (g GeneratorEncodingWireSerialize) Array(r *Result, ctx GenerationContext, a *Array) {
 	i := ctx.LoopVar()
 
-	if a.Size == 0 {
+	if len(a.Size) == 0 {
 		r.Printf("s.%c%s(%s(len(%s)))", unicode.ToUpper(rune(EncodingWireSliceLengthType[0])), EncodingWireSliceLengthType[1:], EncodingWireSliceLengthType, ctx.VarName)
 	}
 	r.Printf("for %s := 0; %s < len(%s); %s++ {", i, i, ctx.VarName, i)
