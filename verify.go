@@ -13,34 +13,124 @@ type GeneratorVerify struct {
 	SOA          bool
 }
 
-func (g GeneratorVerify) NewConstant(r *Result, specName string, fieldName string, prefix string, value string, format string) Constant {
-	var c Constant
+type VerifyComment struct {
+	Each *VerifyComment
 
-	if expr, ok := StripIfFound(value, LCompound, RCompound); ok {
-		vn := VariableName(specName)
-		name := PrependVariableNameAndPrefix(expr, vn, g.SOAPrefix)
+	Funcs        []string
+	InsertAfter  []string
+	InsertBefore []string
 
-		if (g.SOA) && (name != expr) && (name == Singular(name)) {
-			name = fmt.Sprintf("%s[%s]", Plural(name), g.LoopVariable)
+	Max       string
+	MaxLength string
+	Min       string
+	MinLength string
+	Prefix    string
+	SOAPrefix string
+
+	Optional bool
+	Required bool
+	SOA      bool
+	Unique   bool
+}
+
+func (VerifyComment) Comment() {}
+
+func MergeVerifyComments(comments []Comment) VerifyComment {
+	var vc VerifyComment
+
+	for _, comment := range comments {
+		if c, ok := comment.(VerifyComment); ok {
+			if c.Each != nil {
+				vc.Each = c.Each
+			}
+
+			strings.Replace(&vc.Max, c.Max)
+			strings.Replace(&vc.MaxLength, c.MaxLength)
+			strings.Replace(&vc.Min, c.Min)
+			strings.Replace(&vc.MinLength, c.MinLength)
+			strings.Replace(&vc.Prefix, c.Prefix)
+			strings.Replace(&vc.SOAPrefix, c.SOAPrefix)
+
+			vc.Funcs = append(vc.Funcs, c.Funcs...)
+			vc.InsertAfter = append(vc.InsertAfter, c.InsertAfter...)
+			vc.InsertBefore = append(vc.InsertBefore, c.InsertBefore...)
+
+			vc.Optional = vc.Optional || c.Optional
+			vc.Required = vc.Required || c.Required
+			vc.SOA = vc.SOA || c.SOA
+			vc.Unique = vc.Unique || c.Unique
 		}
-		c = Constant{Name: name}
-	} else {
-		if strings.StartsWith(fieldName, "Min") {
-			fieldName = fieldName[len("Min"):]
-		} else if strings.StartsWith(fieldName, "Max") {
-			fieldName = fieldName[len("Max"):]
-		}
-		fieldName = Singular(fieldName)
-		c = r.AddConstant(fmt.Sprintf(format, strings.Or(prefix, specName), fieldName), value)
 	}
 
-	return c
+	return vc
+}
+
+func ParseVerifyComment(comment string, vc *VerifyComment) bool {
+	var done bool
+	for !done {
+		s, rest, ok := ProperCut(comment, ",", LBracks, RBracks, LBraces, RBraces)
+		if !ok {
+			done = true
+		}
+		s = strings.TrimSpace(s)
+
+		lval, rval, ok := strings.Cut(s, "=")
+		if !ok {
+			lval = stdstrings.ToLower(strings.TrimSpace(lval))
+
+			switch lval {
+			case "optional":
+				vc.Optional = true
+			case "required":
+				vc.Required = true
+			case "soa":
+				vc.SOA = true
+			case "uniq", "unique":
+				vc.Unique = true
+			}
+		} else {
+			lval = stdstrings.ToLower(strings.TrimSpace(lval))
+			rval = strings.TrimSpace(rval)
+
+			switch lval {
+			case "each":
+				var each VerifyComment
+				rval, _ = StripIfFound(rval, LBracks, RBracks)
+				if ParseVerifyComment(rval, &each) {
+					vc.Each = &each
+				}
+			case "insertafter":
+				vc.InsertAfter = append(vc.InsertAfter, rval)
+			case "insertbefore":
+				vc.InsertBefore = append(vc.InsertBefore, rval)
+			case "min":
+				vc.Min = rval
+			case "max":
+				vc.Max = rval
+			case "minlen", "minlength":
+				vc.MinLength = rval
+			case "maxlen", "maxlength":
+				vc.MaxLength = rval
+			case "func":
+				vc.Funcs = append(vc.Funcs, rval)
+			case "prefix":
+				vc.Prefix = rval
+			case "soa":
+				vc.SOA = true
+				vc.SOAPrefix = rval
+			}
+		}
+
+		comment = rest
+	}
+
+	return true
 }
 
 func VerifyWithFuncs(r *Result, ctx GenerationContext, funcs []string) {
 	for _, fn := range funcs {
 		var ok bool
-		if fn, ok = StripIfFound(fn, LCompound, RCompound); !ok {
+		if fn, ok = StripIfFound(fn, LBraces, RBraces); !ok {
 			fn = fmt.Sprintf("%s(l, %s)", fn, ctx.Deref(ctx.VarName))
 		} else {
 			fn = stdstrings.Replace(fn, "?", ctx.Deref(ctx.VarName), 1)
@@ -51,29 +141,6 @@ func VerifyWithFuncs(r *Result, ctx GenerationContext, funcs []string) {
 		}
 		r.Line("}")
 	}
-}
-
-func MergeVerifyComments(comments []Comment) VerifyComment {
-	var vc VerifyComment
-
-	for _, comment := range comments {
-		if c, ok := comment.(VerifyComment); ok {
-			vc.InsertAfter = append(vc.InsertAfter, c.InsertAfter...)
-			vc.InsertBefore = append(vc.InsertBefore, c.InsertBefore...)
-			vc.Funcs = append(vc.Funcs, c.Funcs...)
-			strings.Replace(&vc.Min, c.Min)
-			strings.Replace(&vc.Max, c.Max)
-			strings.Replace(&vc.MinLength, c.MinLength)
-			strings.Replace(&vc.MaxLength, c.MaxLength)
-			vc.Optional = vc.Optional || c.Optional
-			strings.Replace(&vc.Prefix, c.Prefix)
-			vc.Required = vc.Required || c.Required
-			vc.SOA = vc.SOA || c.SOA
-			strings.Replace(&vc.SOAPrefix, c.SOAPrefix)
-		}
-	}
-
-	return vc
 }
 
 func (g GeneratorVerify) Decl(r *Result, ctx GenerationContext, t *Type) {
@@ -101,6 +168,30 @@ func (g GeneratorVerify) NamedType(r *Result, ctx GenerationContext, t *Type) {
 		r.Line("return err")
 	}
 	r.Line("}")
+}
+
+func (g GeneratorVerify) NewConstant(r *Result, specName string, fieldName string, prefix string, value string, format string) Constant {
+	var c Constant
+
+	if expr, ok := StripIfFound(value, LBraces, RBraces); ok {
+		vn := VariableName(specName)
+		name := PrependVariableNameAndPrefix(expr, vn, g.SOAPrefix)
+
+		if (g.SOA) && (name != expr) && (name == Singular(name)) {
+			name = fmt.Sprintf("%s[%s]", Plural(name), g.LoopVariable)
+		}
+		c = Constant{Name: name}
+	} else {
+		if strings.StartsWith(fieldName, "Min") {
+			fieldName = fieldName[len("Min"):]
+		} else if strings.StartsWith(fieldName, "Max") {
+			fieldName = fieldName[len("Max"):]
+		}
+		fieldName = Singular(fieldName)
+		c = r.AddConstant(fmt.Sprintf(format, strings.Or(prefix, specName), fieldName), value)
+	}
+
+	return c
 }
 
 func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit) {
@@ -247,10 +338,28 @@ func (g GeneratorVerify) StructFieldSkip(field *StructField) bool {
 }
 
 func (g GeneratorVerify) Array(r *Result, ctx GenerationContext, a *Array) {
+	vc := MergeVerifyComments(ctx.Comments)
+	if vc.Each != nil {
+		ctx.Comments = append(ctx.Comments, *vc.Each)
+	}
+
 	i := ctx.LoopVar()
 	r.Printf("for %s := 0; %s < len(%s); %s++ {", i, i, ctx.VarName, i)
 	{
 		GenerateArrayElement(g, r, ctx.WithVar("%s[%s]", ctx.VarName, i), &a.Element)
+		if vc.Unique {
+			fieldDescription := FieldName2Description(ctx.FieldName)
+			j := ctx.LoopVar()
+			r.Printf("for %s := %s + 1; %s < len(%s); %s++ {", j, i, j, ctx.VarName, j)
+			{
+				r.Printf("if %s[%s] == %s[%s] {", ctx.VarName, i, ctx.VarName, j)
+				{
+					r.Printf(`return fmt.Errorf("%s %%d and %%d are identical", %s, %s)`, fieldDescription, i, j)
+				}
+				r.Line("}")
+			}
+			r.Line("}")
+		}
 	}
 	r.Line("}")
 }
@@ -259,6 +368,38 @@ func (g GeneratorVerify) Slice(r *Result, ctx GenerationContext, s *Slice) {
 	if g.SOA {
 		GenerateArrayElement(g, r, ctx, &s.Element)
 	} else {
+		fieldDescription := FieldName2Description(ctx.FieldName)
+		vc := MergeVerifyComments(ctx.Comments)
+
+		minLengthConst := g.NewConstant(r, ctx.SpecName, ctx.FieldName, vc.Prefix, vc.MinLength, "Min%s%ssLen")
+		maxLengthConst := g.NewConstant(r, ctx.SpecName, ctx.FieldName, vc.Prefix, vc.MaxLength, "Max%s%ssLen")
+		if len(vc.MinLength) > 0 {
+			r.AddImport("fmt")
+			r.Printf("if len(%s) < %s {", ctx.VarName, minLengthConst.Name)
+			{
+				r.Printf(`return fmt.Errorf("number of %s must be at least %%d", %s)`, fieldDescription, minLengthConst.Name)
+			}
+			r.Line("}")
+		} else if len(vc.MaxLength) > 0 {
+			r.AddImport("fmt")
+			r.Printf("if len(%s) > %s {", ctx.VarName, minLengthConst.Name)
+			{
+				r.Printf(`return fmt.Errorf("number of %s must be less than %%d", %s)`, fieldDescription, maxLengthConst.Name)
+			}
+			r.Line("}")
+		} else if (len(vc.MinLength) > 0) && (len(vc.MaxLength) > 0) {
+			r.AddImport("fmt")
+			r.Printf("if (len(%s) < %s) || (len(%s) > %s) {", ctx.VarName, minLengthConst.Name, ctx.VarName, maxLengthConst.Name)
+			{
+				r.Printf(`return fmt.Errorf("%s length must be less between %%d and %%d elements long", %s, %s)`, fieldDescription, minLengthConst.Name, maxLengthConst.Name)
+			}
+			r.Line("}")
+		}
+
+		vc.MinLength = ""
+		vc.MaxLength = ""
+		ctx.Comments = []Comment{vc}
+
 		a := Array{Element: s.Element}
 		g.Array(r, ctx, &a)
 	}

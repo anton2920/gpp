@@ -36,28 +36,16 @@ type FillComment struct {
 	Optional     bool
 }
 
-type VerifyComment struct {
-	InsertAfter  []string
-	InsertBefore []string
-	Min          string
-	Max          string
-	MinLength    string
-	MaxLength    string
-	Funcs        []string
-	Prefix       string
-	Optional     bool
-	Required     bool
-	SOA          bool
-	SOAPrefix    string
-}
-
 type UnionComment struct {
 	Types []string
 }
 
 const (
-	LCompound = "{{"
-	RCompound = "}}"
+	LBraces = "{{"
+	RBraces = "}}"
+
+	LBracks = "[["
+	RBracks = "]]"
 )
 
 func (NOPComment) Comment()      {}
@@ -65,7 +53,6 @@ func (ImportComment) Comment()   {}
 func (InlineComment) Comment()   {}
 func (GenerateComment) Comment() {}
 func (FillComment) Comment()     {}
-func (VerifyComment) Comment()   {}
 func (UnionComment) Comment()    {}
 
 func AppendComments(cs1 []Comment, cs2 []Comment) []Comment {
@@ -82,34 +69,49 @@ func AppendComments(cs1 []Comment, cs2 []Comment) []Comment {
 	return append(cs1, cs2...)
 }
 
-func ProperCut(s string, sep string, s1 string, s2 string) (string, string, bool) {
+func ProperCut(s string, sep string, ss ...string) (string, string, bool) {
+	if (len(ss) == 0) || (len(ss)%2 > 0) {
+		panic("invalid number of correcting strings (should be non-zero even number)")
+	}
+
 	lval, rval, ok := strings.Cut(s, sep)
-	if !ok {
-		return lval, rval, ok
+	if ok {
+		for i := 0; i < len(ss); i += 2 {
+			s1 := ss[i]
+			s2 := ss[i+1]
+
+			s1pos := strings.FindSubstring(lval, s1)
+			if s1pos == -1 {
+				continue
+			}
+
+			s2pos := strings.FindSubstring(lval, s2)
+			if s2pos >= 0 {
+				continue
+			}
+
+			s2pos = strings.FindSubstring(rval, s2)
+			if s2pos == -1 {
+				continue
+			}
+
+			seppos := strings.FindSubstring(rval[s2pos:], sep)
+			seppos += s2pos
+			if (seppos == s2pos-1) || (seppos == len(rval)-1) {
+				lval = lval + sep + rval[:len(rval)-bools.ToInt(seppos == len(rval)-1)]
+				rval = ""
+				ok = seppos == len(rval)-1
+			} else {
+				lval = lval + sep + rval[:seppos]
+				rval = rval[seppos+1:]
+				ok = true
+			}
+
+			break
+		}
 	}
 
-	s1pos := strings.FindSubstring(lval, s1)
-	if s1pos == -1 {
-		return lval, rval, ok
-	}
-
-	s2pos := strings.FindSubstring(lval, s2)
-	if s2pos >= 0 {
-		return lval, rval, ok
-	}
-
-	s2pos = strings.FindSubstring(rval, s2)
-	if s2pos == -1 {
-		return lval, rval, ok
-	}
-
-	seppos := strings.FindSubstring(rval[s2pos:], sep)
-	seppos += s2pos
-	if (seppos == s2pos-1) || (seppos == len(rval)-1) {
-		return lval + sep + rval[:len(rval)-bools.ToInt(seppos == len(rval)-1)], "", seppos == len(rval)-1
-	}
-
-	return lval + sep + rval[:seppos], rval[seppos+1:], true
+	return lval, rval, ok
 }
 
 func StripIfFound(s string, prefix string, suffix string) (string, bool) {
@@ -139,7 +141,7 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 
 		var done bool
 		for !done {
-			s, rest, ok := ProperCut(lit, ";", LCompound, RCompound)
+			s, rest, ok := ProperCut(lit, ";", LBraces, RBraces)
 			if !ok {
 				done = true
 			}
@@ -173,7 +175,6 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 				}
 			case fn.Match("inline"):
 				*comments = []Comment{InlineComment{}}
-				return true
 			case fn.Match("generate..."):
 				var gc GenerateComment
 
@@ -251,7 +252,7 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 
 				lit := string(fn)
 				for !done {
-					s, rest, ok := ProperCut(lit, ",", LCompound, RCompound)
+					s, rest, ok := ProperCut(lit, ",", LBraces, RBraces)
 					if !ok {
 						done = true
 					}
@@ -292,58 +293,9 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 				*comments = append(*comments, fc)
 			case fn.Match("verify:..."):
 				var vc VerifyComment
-				var done bool
-
-				lit := string(fn)
-				for !done {
-					s, rest, ok := ProperCut(lit, ",", LCompound, RCompound)
-					if !ok {
-						done = true
-					}
-					s = strings.TrimSpace(s)
-
-					lval, rval, ok := strings.Cut(s, "=")
-					if !ok {
-						lval = stdstrings.ToLower(strings.TrimSpace(lval))
-
-						switch lval {
-						case "optional":
-							vc.Optional = true
-						case "required":
-							vc.Required = true
-						case "soa":
-							vc.SOA = true
-						}
-					} else {
-						lval = stdstrings.ToLower(strings.TrimSpace(lval))
-						rval = strings.TrimSpace(rval)
-
-						switch lval {
-						case "insertafter":
-							vc.InsertAfter = append(vc.InsertAfter, rval)
-						case "insertbefore":
-							vc.InsertBefore = append(vc.InsertBefore, rval)
-						case "min":
-							vc.Min = rval
-						case "max":
-							vc.Max = rval
-						case "minlen", "minlength":
-							vc.MinLength = rval
-						case "maxlen", "maxlength":
-							vc.MaxLength = rval
-						case "func":
-							vc.Funcs = append(vc.Funcs, rval)
-						case "prefix":
-							vc.Prefix = rval
-						case "soa":
-							vc.SOA = true
-							vc.SOAPrefix = rval
-						}
-					}
-
-					lit = rest
+				if !ParseVerifyComment(string(fn), &vc) {
+					continue
 				}
-
 				*comments = append(*comments, vc)
 			case fn.Match("union:..."):
 				var uc UnionComment

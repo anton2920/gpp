@@ -1,7 +1,6 @@
 Now:
 
 - Remove methods from 'Generator' in favor of type-switches.
-- Replace 'ctx.Deref(ctx.VarName)' with 'ctx.VarName()'; s/VarName/varName/.
 - Concat InsertBefore and InsertAfter with '\n' in the comment instead of []string.
 - Replace 'GetInt32' with 'GetInt32_' and unify 'Primitive' and 'PrimitiveSlice' in 'fill(values)'.
 

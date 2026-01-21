@@ -98,7 +98,7 @@ func PrependVariableName(s string, vn string) string {
 
 func Insert(r *Result, ctx GenerationContext, inserts []string) {
 	for _, insert := range inserts {
-		if insert, ok := StripIfFound(insert, LCompound, RCompound); ok {
+		if insert, ok := StripIfFound(insert, LBraces, RBraces); ok {
 			lines := stdstrings.Split(PrependVariableName(insert, VariableName(ctx.SpecName)), "\n")
 			tabs := r.Tabs
 			for i := 0; i < len(lines); i++ {

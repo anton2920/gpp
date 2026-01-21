@@ -17,7 +17,7 @@ func FillWithFunc(r *Result, ctx GenerationContext, fn string) {
 	var ok bool
 
 	v := fmt.Sprintf(`vs.Get("%s")`, ctx.FieldName)
-	if fn, ok = StripIfFound(fn, LCompound, RCompound); !ok {
+	if fn, ok = StripIfFound(fn, LBraces, RBraces); !ok {
 		fn = fmt.Sprintf(`%s(%s)`, fn, v)
 	} else {
 		fn = PrependVariableName(stdstrings.Replace(fn, "?", v, 1), VariableName(ctx.SpecName))
