@@ -1,10 +1,7 @@
 package main
 
 import (
-	"fmt"
 	"go/token"
-	"os"
-	stdstrings "strings"
 
 	"github.com/anton2920/gofa/bools"
 	"github.com/anton2920/gofa/net/url"
@@ -27,15 +24,6 @@ type GenerateComment struct {
 	Generators []Generator
 }
 
-type FillComment struct {
-	InsertAfter  []string
-	InsertBefore []string
-	Func         string
-	Enum         bool
-	NOP          bool
-	Optional     bool
-}
-
 type UnionComment struct {
 	Types []string
 }
@@ -52,7 +40,6 @@ func (NOPComment) Comment()      {}
 func (ImportComment) Comment()   {}
 func (InlineComment) Comment()   {}
 func (GenerateComment) Comment() {}
-func (FillComment) Comment()     {}
 func (UnionComment) Comment()    {}
 
 func AppendComments(cs1 []Comment, cs2 []Comment) []Comment {
@@ -248,48 +235,9 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 				*comments = append(*comments, gc)
 			case fn.Match("fill:..."):
 				var fc FillComment
-				var done bool
-
-				lit := string(fn)
-				for !done {
-					s, rest, ok := ProperCut(lit, ",", LBraces, RBraces)
-					if !ok {
-						done = true
-					}
-					s = strings.TrimSpace(s)
-
-					switch stdstrings.ToLower(s) {
-					case "enum":
-						fc.Enum = true
-					case "nop":
-						fc.NOP = true
-					case "optional":
-						fc.Optional = true
-					default:
-						lval, rval, ok := strings.Cut(s, "=")
-						if ok {
-							lval = stdstrings.ToLower(strings.TrimSpace(lval))
-							rval = strings.TrimSpace(rval)
-
-							switch lval {
-							case "insertafter":
-								fc.InsertAfter = append(fc.InsertAfter, rval)
-							case "insertbefore":
-								fc.InsertBefore = append(fc.InsertBefore, rval)
-							case "func":
-								fc.Func = rval
-							}
-						}
-					}
-
-					lit = rest
+				if !ParseFillComment(string(fn), &fc) {
+					continue
 				}
-
-				if (fc.Optional) && (!fc.Enum) {
-					fmt.Fprintf(os.Stderr, "WARNING: ignoring 'Optional' without 'Enum'")
-					fc.Optional = false
-				}
-
 				*comments = append(*comments, fc)
 			case fn.Match("verify:..."):
 				var vc VerifyComment

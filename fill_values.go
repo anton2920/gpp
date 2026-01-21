@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	stdstrings "strings"
 	"unicode"
 
@@ -11,6 +12,95 @@ import (
 
 type GeneratorFillValues struct {
 	SliceField bool
+}
+
+type FillComment struct {
+	Each *FillComment
+
+	Func string
+
+	InsertAfter  []string
+	InsertBefore []string
+
+	Enum     bool
+	NOP      bool
+	Optional bool
+}
+
+func (FillComment) Comment() {}
+
+func MergeFillComments(comments []Comment) FillComment {
+	var fc FillComment
+
+	for _, comment := range comments {
+		if c, ok := comment.(FillComment); ok {
+			if c.Each != nil {
+				fc.Each = c.Each
+			}
+
+			strings.Replace(&fc.Func, c.Func)
+
+			fc.InsertAfter = append(fc.InsertAfter, c.InsertAfter...)
+			fc.InsertBefore = append(fc.InsertBefore, c.InsertBefore...)
+
+			fc.Enum = fc.Enum || c.Enum
+			fc.Optional = fc.Optional || c.Optional
+
+		}
+	}
+
+	return fc
+}
+
+func ParseFillComment(comment string, fc *FillComment) bool {
+	var done bool
+
+	for !done {
+		s, rest, ok := ProperCut(comment, ",", LBracks, RBracks, LBraces, RBraces)
+		if !ok {
+			done = true
+		}
+		s = strings.TrimSpace(s)
+
+		switch stdstrings.ToLower(s) {
+		case "enum":
+			fc.Enum = true
+		case "nop":
+			fc.NOP = true
+		case "optional":
+			fc.Optional = true
+		default:
+			lval, rval, ok := strings.Cut(s, "=")
+			if ok {
+				lval = stdstrings.ToLower(strings.TrimSpace(lval))
+				rval = strings.TrimSpace(rval)
+
+				switch lval {
+				case "each":
+					var each FillComment
+					rval, _ = StripIfFound(rval, LBracks, RBracks)
+					if ParseFillComment(rval, &each) {
+						fc.Each = &each
+					}
+				case "insertafter":
+					fc.InsertAfter = append(fc.InsertAfter, rval)
+				case "insertbefore":
+					fc.InsertBefore = append(fc.InsertBefore, rval)
+				case "func":
+					fc.Func = rval
+				}
+			}
+		}
+
+		comment = rest
+	}
+
+	if (fc.Optional) && (!fc.Enum) {
+		fmt.Fprintf(os.Stderr, "WARNING: ignoring 'Optional' without 'Enum'")
+		fc.Optional = false
+	}
+
+	return true
 }
 
 func FillWithFunc(r *Result, ctx GenerationContext, fn string) {
@@ -24,22 +114,6 @@ func FillWithFunc(r *Result, ctx GenerationContext, fn string) {
 	}
 
 	r.Printf("%s = %s", ctx.VarName, fn)
-}
-
-func MergeFillComments(comments []Comment) FillComment {
-	var fc FillComment
-
-	for _, comment := range comments {
-		if c, ok := comment.(FillComment); ok {
-			fc.InsertAfter = append(fc.InsertAfter, c.InsertAfter...)
-			fc.InsertBefore = append(fc.InsertBefore, c.InsertBefore...)
-			fc.Enum = fc.Enum || c.Enum
-			strings.Replace(&fc.Func, c.Func)
-			fc.Optional = fc.Optional || c.Optional
-		}
-	}
-
-	return fc
 }
 
 func (g GeneratorFillValues) Imports() []string {
@@ -196,6 +270,8 @@ func (g GeneratorFillValues) Slice(r *Result, ctx GenerationContext, s *Slice) {
 }
 
 func (g GeneratorFillValues) Union(r *Result, ctx GenerationContext, u *Union) {
+	fc := MergeFillComments(ctx.Comments)
+
 	r.Printf("switch %s := %s.(type) {", ctx.VarName, ctx.Deref(ctx.VarName))
 	{
 		for _, name := range u.Types {
@@ -212,7 +288,13 @@ func (g GeneratorFillValues) Union(r *Result, ctx GenerationContext, u *Union) {
 			r.Printf("case %s%s:", star, t)
 			{
 				if name != "nil" {
+					if fc.Each != nil {
+						Insert(r, ctx, fc.Each.InsertBefore)
+					}
 					g.NamedType(r, ctx, &t)
+					if fc.Each != nil {
+						Insert(r, ctx, fc.Each.InsertAfter)
+					}
 				}
 			}
 			r.Tabs--
