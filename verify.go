@@ -406,6 +406,8 @@ func (g GeneratorVerify) Slice(r *Result, ctx GenerationContext, s *Slice) {
 }
 
 func (g GeneratorVerify) Union(r *Result, ctx GenerationContext, u *Union) {
+	vc := MergeVerifyComments(ctx.Comments)
+
 	r.Printf("switch %s := %s.(type) {", ctx.VarName, ctx.Deref(ctx.VarName))
 	{
 		for _, name := range u.Types {
@@ -422,7 +424,13 @@ func (g GeneratorVerify) Union(r *Result, ctx GenerationContext, u *Union) {
 			r.Printf("case %s%s:", star, t)
 			{
 				if name != "nil" {
+					if vc.Each != nil {
+						Insert(r, ctx, vc.Each.InsertBefore)
+					}
 					g.NamedType(r, ctx, &t)
+					if vc.Each != nil {
+						Insert(r, ctx, vc.Each.InsertAfter)
+					}
 				}
 			}
 			r.Tabs--
