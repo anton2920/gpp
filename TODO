@@ -3,6 +3,9 @@ Now:
 - Remove methods from 'Generator' in favor of type-switches.
 - Concat InsertBefore and InsertAfter with '\n' in the comment instead of []string.
 - Replace 'GetInt32' with 'GetInt32_' and unify 'Primitive' and 'PrimitiveSlice' in 'fill(values)'.
+- Allow inlining for ArrayElement generation (so, e.g. 'verify', can benefit from better error messages and 'fill(values)' works with 'Key%d'.
+- Make '//gpp:fill: Key={{Array[i][Input]}}' work.
+- Find a way to suppress generation of extra functions (e.g. that work on arrays of values).
 
 Later:
 
