@@ -130,7 +130,7 @@ func (Struct) TypeLit()    {}
 func (Union) TypeLit()     {}
 
 func (a Array) String() string {
-	return fmt.Sprintf("[%d]%s", a.Size, a.Element.String())
+	return fmt.Sprintf("[%s]%s", a.Size, a.Element.String())
 }
 
 func (b Bool) String() string {
