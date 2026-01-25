@@ -96,6 +96,7 @@ func FixAttr(s string) string {
 }
 
 func GenerateGOXBody(r *Result, body string) {
+	var codeBlock string
 	var nblocks int
 
 	for len(body) > 0 {
@@ -107,6 +108,21 @@ func GenerateGOXBody(r *Result, body string) {
 			}
 		}
 		body = body[i:]
+
+		if len(codeBlock) > 0 {
+			needle := "</" + codeBlock + ">"
+			end := strings.FindSubstring(body, needle)
+			if end == -1 {
+				Warnf("unterminated code block %q", codeBlock)
+				break
+			}
+
+			r.Printf("h.String(`%s`)", strings.TrimSpace(body[:end])).Line("}").Printf("h.%sEnd2()", stdstrings.Title(codeBlock)).Line("")
+
+			codeBlock = ""
+			body = body[end+len(needle):]
+			continue
+		}
 
 		begin := FindTagBegin(body)
 		if (begin == -1) || (begin > 0) {
@@ -221,6 +237,8 @@ func GenerateGOXBody(r *Result, body string) {
 			s := body[1:end]
 			body = body[end+1:]
 
+			codeBlocks := []string{"style", "script"}
+
 			noAttributesBlock := []string{"head", "body", "div", "select", "ol", "ul"}
 			noAttributesNoBlock := []string{"h1", "h2", "h3", "h4", "h5", "h6", "p", "b", "i", "span", "option", "textarea", "title", "li", "label"}
 			attributesBlock := []string{"form"}
@@ -257,6 +275,9 @@ func GenerateGOXBody(r *Result, body string) {
 				tag := stdstrings.ToLower(strings.TrimSpace(otag))
 
 				switch {
+				case SliceContains(codeBlocks, tag):
+					codeBlock = tag
+					fallthrough
 				case SliceContains(noAttributesBlock, tag):
 					createBlock = true
 					fallthrough
