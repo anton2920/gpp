@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"runtime"
 
+	"github.com/anton2920/gofa/bools"
 	"github.com/anton2920/gofa/strings"
 )
 
@@ -208,7 +209,7 @@ func main() {
 						}
 						r.Line("}")
 					}
-					offset = fn.BodyEndOffset
+					offset = fn.BodyEndOffset + bools.ToInt(len(fn.Comments) > 0)
 				}
 			}
 

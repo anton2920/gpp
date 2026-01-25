@@ -179,7 +179,7 @@ func (r *Result) ShouldDump() bool {
 
 func (r *Result) DoTabs(s string) {
 	if len(s) > 0 {
-		if strings.EndsWith(s, "}") {
+		if s == "}" {
 			r.Tabs--
 		}
 		for i := 0; i < r.Tabs; i++ {

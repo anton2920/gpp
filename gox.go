@@ -346,6 +346,7 @@ func GenerateGOXBody(r *Result, body string) {
 					attrs := make(map[string]QuotedString)
 					r.Backspace()
 					for !done {
+						/* TODO(anton2920): attributes may be '\n'-separated. */
 						attr, rest, ok := ProperCut(s, " ", "\"", "\"", "{{", "}}", "{", "}")
 						if !ok {
 							done = true
