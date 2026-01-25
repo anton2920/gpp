@@ -233,7 +233,7 @@ func GenerateGOXBody(r *Result, body string) {
 				case (SliceContains(noAttributesBlock, tag)) || (SliceContains(attributesBlock, tag)) || (SliceContains([]string{"svg"}, tag)):
 					r.RemoveLastNewline().Line("}")
 					fallthrough
-				case (SliceContains(noAttributesNoBlock, tag)) || (SliceContains(attributesNoBlock, tag)):
+				case (SliceContains(noAttributesNoBlock, tag)) || (SliceContains(attributesNoBlock, tag)) || (SliceContains([]string{"text"}, tag)):
 					r.RemoveLastNewline().Printf("h.%sEnd2()", stdstrings.Title(tag)).Line("")
 				default:
 					switch tag {
@@ -280,11 +280,19 @@ func GenerateGOXBody(r *Result, body string) {
 					case "input":
 						extraNewline = true
 						fallthrough
-					case "link":
+					case "link", "path":
 						r.Printf(`h.%s2("")`, stdstrings.Title(tag))
 					case "svg":
-						r.Printf(`h.%sBegin2(0, 0)`, stdstrings.Title(tag))
 						createBlock = true
+						fallthrough
+					case "text":
+						r.Printf(`h.%sBegin2(0, 0)`, stdstrings.Title(tag))
+					case "circle":
+						r.Printf(`h.%s2(0, 0, 0)`, stdstrings.Title(tag))
+					case "line":
+						r.Printf(`h.%s2(0, 0, 0, 0)`, stdstrings.Title(tag))
+					case "rect":
+						r.Printf(`h.%s2(0, 0, 0, 0, 0)`, stdstrings.Title(tag))
 					default:
 						if (otag == stdstrings.ToUpper(otag)) || (otag != stdstrings.Title(otag)) {
 							Warnf("unhandled %q", tag)
@@ -337,7 +345,7 @@ func GenerateGOXBody(r *Result, body string) {
 							switch lval {
 							case "classname":
 								lval = "class"
-							case "minlength", "maxlength", "width", "height":
+							case "minlength", "maxlength", "width", "height", "x", "y", "fontSize", "fontWeight", "strokeWidth", "cx", "cy", "r", "rx", "x1", "x2", "y1", "y2":
 								quoted = false
 							}
 
@@ -353,22 +361,75 @@ func GenerateGOXBody(r *Result, body string) {
 
 					/* Replace empty mandatory attribute with actual value. */
 					switch tag {
-					case "form":
-						r.Backspace(len(`"")`)).Printf(`%s)`, attrs["method"]).Backspace()
-						delete(attrs, "method")
 					case "a", "link":
 						r.Backspace(len(`"")`)).Printf(`%s)`, attrs["href"]).Backspace()
 						delete(attrs, "href")
+					case "circle":
+						if cx, ok1 := attrs["cx"]; ok1 {
+							if cy, ok2 := attrs["cy"]; ok2 {
+								if cr, ok3 := attrs["r"]; ok3 {
+									r.Backspace(len(`0, 0, 0)`)).Printf(`%s, %s, %s)`, cx, cy, cr).Backspace()
+									delete(attrs, "cx")
+									delete(attrs, "cy")
+									delete(attrs, "r")
+								}
+							}
+						}
+					case "form":
+						r.Backspace(len(`"")`)).Printf(`%s)`, attrs["method"]).Backspace()
+						delete(attrs, "method")
 					case "img":
 						r.Backspace(len(`"", "")`)).Printf(`%s, %s)`, attrs["alt"], attrs["src"]).Backspace()
 						delete(attrs, "alt")
 						delete(attrs, "src")
+					case "line":
+						if x1, ok1 := attrs["x1"]; ok1 {
+							if y1, ok2 := attrs["y1"]; ok2 {
+								if x2, ok3 := attrs["x2"]; ok3 {
+									if y2, ok4 := attrs["y2"]; ok4 {
+										r.Backspace(len(`0, 0, 0, 0)`)).Printf(`%s, %s, %s, %s)`, x1, y1, x2, y2).Backspace()
+										delete(attrs, "x1")
+										delete(attrs, "y1")
+										delete(attrs, "x2")
+										delete(attrs, "y2")
+									}
+								}
+							}
+						}
 					case "svg":
-						if _, ok1 := attrs["width"]; ok1 {
-							if _, ok2 := attrs["height"]; ok2 {
-								r.Backspace(len(`0, 0)`)).Printf(`%s, %s)`, attrs["width"], attrs["height"]).Backspace()
+						if width, ok1 := attrs["width"]; ok1 {
+							if height, ok2 := attrs["height"]; ok2 {
+								r.Backspace(len(`0, 0)`)).Printf(`%s, %s)`, width, height).Backspace()
 								delete(attrs, "width")
 								delete(attrs, "height")
+							}
+						}
+					case "text":
+						if x, ok1 := attrs["x"]; ok1 {
+							if y, ok2 := attrs["y"]; ok2 {
+								r.Backspace(len(`0, 0)`)).Printf(`%s, %s)`, x, y).Backspace()
+								delete(attrs, "x")
+								delete(attrs, "y")
+							}
+						}
+					case "path":
+						r.Backspace(len(`"")`)).Printf(`%s)`, attrs["d"]).Backspace()
+						delete(attrs, "d")
+					case "rect":
+						if x, ok1 := attrs["x"]; ok1 {
+							if y, ok2 := attrs["y"]; ok2 {
+								if width, ok3 := attrs["width"]; ok3 {
+									if height, ok4 := attrs["height"]; ok4 {
+										if rx, ok5 := attrs["rx"]; ok5 {
+											r.Backspace(len(`0, 0, 0, 0, 0)`)).Printf(`%s, %s, %s, %s, %s)`, x, y, width, height, rx).Backspace()
+											delete(attrs, "x")
+											delete(attrs, "y")
+											delete(attrs, "width")
+											delete(attrs, "height")
+											delete(attrs, "rx")
+										}
+									}
+								}
 							}
 						}
 					case "input":
