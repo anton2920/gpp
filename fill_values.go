@@ -259,7 +259,7 @@ func (g GeneratorFillValues) Slice(r *Result, ctx GenerationContext, s *Slice) {
 	g.SliceField = true
 	elem := &s.Element
 	if len(elem.Name) > 0 {
-		lit := ctx.FindTypeLit(r.Imports, strings.Or(elem.Package, r.Package), elem.Name)
+		lit := ctx.Parser.FindTypeLit(r.File.Imports, strings.Or(elem.Package, r.File.Package), elem.Name)
 		if (lit != nil) && (IsPrimitive(lit)) {
 			GenerateTypeLit(g, r, ctx.WithCast(elem.String()), lit)
 			return

@@ -172,6 +172,10 @@ func main() {
 						switch comment := comment.(type) {
 						case ImportComment:
 							r.AddImport(comment.Path)
+						}
+					}
+					for _, comment := range spec.Comments {
+						switch comment := comment.(type) {
 						case GenerateComment:
 							for _, g := range comment.Generators {
 								Generate(g, &r, &p, &spec)

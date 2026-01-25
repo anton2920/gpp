@@ -48,7 +48,7 @@ func BenchmarkSerializeStepWire(b *testing.B) {
 	step := Step(&testStep)
 
 	for i := 0; i < b.N; i++ {
-		s.Reset()
+		s.Buffer = s.Buffer[:0]
 		SerializeStepWire(&s, &step)
 	}
 

@@ -294,12 +294,14 @@ func (g GeneratorVerify) Struct(r *Result, ctx GenerationContext, s *Struct) {
 			field1 := fmt.Sprintf("%s.%s", ctx.VarName, s.Fields[1].Name)
 
 			tabs := r.Tabs
-			r.Printf("if (len(%s) != len(%s))", field0, field1)
-			r.Backspace()
+			if len(s.Fields) == 2 {
+				r.Printf("if len(%s) != len(%s)", field0, field1).Backspace()
+			} else {
+				r.Printf("if (len(%s) != len(%s))", field0, field1).Backspace()
+			}
 			r.Tabs = 0
 			for _, field := range s.Fields[2:] {
-				r.Printf(" || (len(%s) != len(%s.%s))", field0, ctx.VarName, field.Name)
-				r.Backspace()
+				r.Printf(" || (len(%s) != len(%s.%s))", field0, ctx.VarName, field.Name).Backspace()
 			}
 			r.Line(" {")
 			r.Tabs = tabs + 1

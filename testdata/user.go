@@ -15,7 +15,8 @@ const (
 	UserTypeCount
 )
 
-//gpp:generate: fill(values), verify, encoding(json,wire)
+//gpp:generate: fill(values), verify, encoding(json, wire)
+//gpp:import: GOFA+"bits"
 type User struct {
 	database.RecordHeader //gpp:fill: nop
 

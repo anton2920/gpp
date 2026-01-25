@@ -11,7 +11,7 @@ import (
 type KeySet map[string]struct{}
 
 type GenerationContext struct {
-	*Parser
+	Parser *Parser
 
 	SpecName  string
 	FieldName string
@@ -216,7 +216,7 @@ func GenerateStructFields(g Generator, r *Result, ctx GenerationContext, fields 
 
 		var lit TypeLit
 		if (field.Type.Literal == nil) && (len(field.Type.Name) > 0) {
-			lit = ctx.FindTypeLit(r.Imports, strings.Or(field.Type.Package, r.Package), field.Type.Name)
+			lit = ctx.Parser.FindTypeLit(r.File.Imports, strings.Or(field.Type.Package, r.File.Package), field.Type.Name)
 			if s, ok := lit.(Struct); ok {
 				if len(field.Name) == 0 {
 					for i := 0; i < len(s.Fields); i++ {
@@ -250,7 +250,7 @@ func GenerateStructField(g Generator, r *Result, ctx GenerationContext, field *S
 
 func GenerateArrayElement(g Generator, r *Result, ctx GenerationContext, elem *Type) {
 	if len(elem.Name) > 0 {
-		lit := ctx.FindTypeLit(r.Imports, strings.Or(elem.Package, r.Package), elem.Name)
+		lit := ctx.Parser.FindTypeLit(r.File.Imports, strings.Or(elem.Package, r.File.Package), elem.Name)
 		if (lit != nil) && (IsPrimitive(lit)) {
 			GenerateTypeLit(g, r, ctx.WithCast(lit.String()), lit)
 			return
