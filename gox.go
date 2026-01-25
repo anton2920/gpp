@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	stdstrings "strings"
 	"unicode"
 
@@ -24,14 +25,15 @@ func (g GeneratorGOX) Slice(r *Result, ctx GenerationContext, s *Slice) {}
 func (g GeneratorGOX) Union(r *Result, ctx GenerationContext, u *Union) {}
 
 type QuotedString struct {
-	Value  string
-	Quoted bool
+	Value   string
+	Quoted  bool
+	Present bool
 }
 
 const HandleComments = true
 
 func (qv QuotedString) String() string {
-	if qv.Quoted {
+	if (qv.Quoted) || (!qv.Present) {
 		return `"` + qv.Value + `"`
 	}
 	return qv.Value
@@ -73,6 +75,24 @@ func FindTagBegin(s string) int {
 	}
 
 	return begin
+}
+
+func FixAttr(s string) string {
+	var buf bytes.Buffer
+
+	pos := strings.FindChar(s, '-')
+	if pos == -1 {
+		return s
+	}
+
+	for pos >= 0 {
+		buf.WriteString(s[:pos])
+		s = stdstrings.Title(s[pos+1:])
+		pos = strings.FindChar(s, '-')
+	}
+	buf.WriteString(s)
+
+	return buf.String()
 }
 
 func GenerateGOXBody(r *Result, body string) {
@@ -202,7 +222,7 @@ func GenerateGOXBody(r *Result, body string) {
 			body = body[end+1:]
 
 			noAttributesBlock := []string{"head", "body", "div", "select", "ol", "ul"}
-			noAttributesNoBlock := []string{"h1", "h2", "h3", "h4", "h5", "h6", "p", "b", "i", "span", "option", "textarea", "title", "li"}
+			noAttributesNoBlock := []string{"h1", "h2", "h3", "h4", "h5", "h6", "p", "b", "i", "span", "option", "textarea", "title", "li", "label"}
 			attributesBlock := []string{"form"}
 			attributesNoBlock := []string{"a"}
 
@@ -210,7 +230,7 @@ func GenerateGOXBody(r *Result, body string) {
 				otag := strings.TrimSpace(s)
 				tag := stdstrings.ToLower(otag)
 				switch {
-				case (SliceContains(noAttributesBlock, tag)) || (SliceContains(attributesBlock, tag)):
+				case (SliceContains(noAttributesBlock, tag)) || (SliceContains(attributesBlock, tag)) || (SliceContains([]string{"svg"}, tag)):
 					r.RemoveLastNewline().Line("}")
 					fallthrough
 				case (SliceContains(noAttributesNoBlock, tag)) || (SliceContains(attributesNoBlock, tag)):
@@ -258,8 +278,13 @@ func GenerateGOXBody(r *Result, body string) {
 						r.Printf(`h.%s2("", "")`, stdstrings.Title(tag))
 						extraNewline = true
 					case "input":
-						r.Printf(`h.%s2("")`, stdstrings.Title(tag))
 						extraNewline = true
+						fallthrough
+					case "link":
+						r.Printf(`h.%s2("")`, stdstrings.Title(tag))
+					case "svg":
+						r.Printf(`h.%sBegin2(0, 0)`, stdstrings.Title(tag))
+						createBlock = true
 					default:
 						if (otag == stdstrings.ToUpper(otag)) || (otag != stdstrings.Title(otag)) {
 							Warnf("unhandled %q", tag)
@@ -296,9 +321,9 @@ func GenerateGOXBody(r *Result, body string) {
 						}
 
 						lval, rval, ok := strings.Cut(attr, "=")
-						lval = stdstrings.ToLower(strings.TrimSpace(lval))
+						lval = FixAttr(stdstrings.ToLower(strings.TrimSpace(lval)))
 						if !ok {
-							attrs[lval] = QuotedString{"true", false}
+							attrs[lval] = QuotedString{"true", false, true}
 						} else {
 							rval, quoted := StripIfFound(strings.TrimSpace(rval), "\"", "\"")
 							if !quoted {
@@ -312,11 +337,11 @@ func GenerateGOXBody(r *Result, body string) {
 							switch lval {
 							case "classname":
 								lval = "class"
-							case "minlength", "maxlength":
+							case "minlength", "maxlength", "width", "height":
 								quoted = false
 							}
 
-							attrs[lval] = QuotedString{rval, quoted}
+							attrs[lval] = QuotedString{rval, quoted, true}
 						}
 
 						if len(lval) > 0 {
@@ -324,19 +349,28 @@ func GenerateGOXBody(r *Result, body string) {
 						}
 						s = rest
 					}
+					delete(attrs, "xmlns")
 
 					/* Replace empty mandatory attribute with actual value. */
 					switch tag {
 					case "form":
 						r.Backspace(len(`"")`)).Printf(`%s)`, attrs["method"]).Backspace()
 						delete(attrs, "method")
-					case "a":
+					case "a", "link":
 						r.Backspace(len(`"")`)).Printf(`%s)`, attrs["href"]).Backspace()
 						delete(attrs, "href")
 					case "img":
 						r.Backspace(len(`"", "")`)).Printf(`%s, %s)`, attrs["alt"], attrs["src"]).Backspace()
 						delete(attrs, "alt")
 						delete(attrs, "src")
+					case "svg":
+						if _, ok1 := attrs["width"]; ok1 {
+							if _, ok2 := attrs["height"]; ok2 {
+								r.Backspace(len(`0, 0)`)).Printf(`%s, %s)`, attrs["width"], attrs["height"]).Backspace()
+								delete(attrs, "width")
+								delete(attrs, "height")
+							}
+						}
 					case "input":
 						switch attrs["type"].Value {
 						case "":
