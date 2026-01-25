@@ -1,0 +1,87 @@
+package main
+
+import "github.com/anton2920/gofa/net/html"
+
+func DisplayHeader(h *html.HTML) {
+}
+
+func DisplayFooter(h *html.HTML) {
+}
+
+func DisplayCrumbsBegin(h *html.HTML) {
+}
+
+func DisplayCrumbBegin(h *html.HTML) {
+}
+
+func DisplayCrumbEnd(h *html.HTML) {
+}
+
+func DisplayCrumbsEnd(h *html.HTML) {
+}
+
+func DisplayUserTitle(h *html.HTML, user *User) *html.HTML {
+	return h
+}
+
+var groups [][]string
+var user *User
+
+//gpp:generate: gox
+func TestPage(h *html.HTML) {
+	<!DOCTYPE html>
+
+	<head>
+		<title></title>
+	</head>
+
+	<body>
+		<Header/>
+
+		<h1>Hello!</h1>
+
+		<div>
+			<h1>
+				if 1 == 1 {
+					true
+				} else {
+					false
+				}
+			</h1>
+		</div>
+
+		<UserTitle className="text-center" user={user}/>
+
+		<Crumbs>
+			<Crumb><a href="/">Home</a></Crumb>
+	    		<Crumb><a href={h.PathID("/user/", user.ID)}></a></Crumb>
+		</Crumbs>
+
+		<input type="text" minlength="1" maxlength="45" name="FirstName" value={user.FirstName} placeholder="First name" required>
+
+		<!-- Test comment. -->
+		<ul>
+			for i := 0; i < len(groups); i++ {
+				{{items := groups[i]}}
+				if len(items) == 0 {
+					<p>Boo!</p>
+				} else if len(items) > 0 {
+					for i, item := range items {
+						switch item {
+						case "Apple":
+							<li>Here's an {item}-{item}!</li>
+						case "Orange":
+							<li>Annoying!</li>
+						default:
+							<li>Item number #{{h.Int(i)}} = {item}</li>
+						}
+					}
+				}
+			}
+		</ul>
+
+		<Footer/>
+	</body>
+
+	</html>
+}

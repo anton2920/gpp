@@ -35,9 +35,13 @@ func ReadEntireFile(filename string) ([]byte, error) {
 }
 
 func Usage() {
-	fmt.Fprintf(os.Stderr, "usage: gpp [flags] [path ...]\n")
+	Errorf("usage: gpp [flags] [path ...]")
 	flag.PrintDefaults()
 	os.Exit(2)
+}
+
+func Warnf(format string, args ...interface{}) {
+	Errorf("WARNING: "+format, args...)
 }
 
 func Errorf(format string, args ...interface{}) {
@@ -78,7 +82,7 @@ func PopulateFileSet(fs *token.FileSet, paths []string) error {
 				file := files[j]
 				name := file.Name()
 
-				if (strings.EndsWith(name, ".go")) && (strings.FindSubstring(name, GeneratedSuffix) == -1) {
+				if ((strings.EndsWith(name, ".go")) || strings.EndsWith(name, ".gox")) && (strings.FindSubstring(name, GeneratedSuffix) == -1) && (strings.FindSubstring(name, "_gox") == -1) {
 					fs.AddFile(filepath.Join(path, name), fs.Base(), int(file.Size()))
 				}
 			}
@@ -152,13 +156,16 @@ func main() {
 
 		p.File(f, &file, processedPackages, *recursive)
 		if p.Error != nil {
-			Errorf("Failed to parse file %q: %v", f.Name(), p.Error)
+			p.Error = fmt.Errorf("failed to parse file %q: %v", f.Name(), p.Error)
 			return false
 		}
 
 		p.Packages[file.Package] = append(p.Packages[file.Package], file)
 		return true
 	})
+	if p.Error != nil {
+		Fatalf("%v", p.Error)
+	}
 
 	for _, files := range p.Packages {
 		for i := 0; i < len(files); i++ {
@@ -167,7 +174,7 @@ func main() {
 
 			r := Result{File: file}
 			for _, spec := range file.Specs {
-				if spec.Comments != nil {
+				if len(spec.Comments) > 0 {
 					for _, comment := range spec.Comments {
 						switch comment := comment.(type) {
 						case ImportComment:
@@ -182,6 +189,26 @@ func main() {
 							}
 						}
 					}
+				}
+			}
+			if filepath.Ext(fileName) == ".gox" {
+				var offset int
+				for _, fn := range file.Funcs {
+					r.Tabs = 0
+					r.Line(r.File.Source[offset:fn.BeginOffset]).Backspace()
+					if len(fn.Comments) == 0 {
+						r.Line(r.File.Source[fn.BeginOffset:fn.BodyEndOffset]).Backspace()
+					} else {
+						r.Line(r.File.Source[fn.BeginOffset : fn.BodyBeginOffset+1])
+						for _, comment := range fn.Comments {
+							switch comment.(type) {
+							case GenerateComment:
+								GenerateGOX(&r, &p, &fn)
+							}
+						}
+						r.Line("}")
+					}
+					offset = fn.BodyEndOffset
 				}
 			}
 

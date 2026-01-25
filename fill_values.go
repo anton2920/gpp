@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	stdstrings "strings"
 	"unicode"
 
@@ -96,7 +95,7 @@ func ParseFillComment(comment string, fc *FillComment) bool {
 	}
 
 	if (fc.Optional) && (!fc.Enum) {
-		fmt.Fprintf(os.Stderr, "WARNING: ignoring 'Optional' without 'Enum'")
+		Warnf("ignoring 'Optional' without 'Enum'")
 		fc.Optional = false
 	}
 

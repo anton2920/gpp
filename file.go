@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/scanner"
 	"go/token"
+	"path/filepath"
 )
 
 type File struct {
@@ -12,6 +13,9 @@ type File struct {
 
 	Imports Imports
 	Specs   []TypeSpec
+	Funcs   []Func
+
+	Source string
 }
 
 func (p *Parser) File(f *token.File, file *File, processedPackages map[string]struct{}, recursive bool) bool {
@@ -21,6 +25,7 @@ func (p *Parser) File(f *token.File, file *File, processedPackages map[string]st
 		return false
 	}
 	file.Name = f.Name()
+	file.Source = string(src)
 
 	p.Scanner.Init(f, src, nil, scanner.ScanComments)
 	p.Lexer.Tokens = p.Lexer.Tokens[:0]
@@ -50,6 +55,14 @@ func (p *Parser) File(f *token.File, file *File, processedPackages map[string]st
 				}
 				file.Specs = append(file.Specs, specs...)
 				continue
+			}
+		case token.FUNC:
+			if filepath.Ext(file.Name) == ".gox" {
+				var fn Func
+				if !p.Func(&fn) {
+					p.Error = fmt.Errorf("failed to parse func declaration: %v", p.Error)
+				}
+				file.Funcs = append(file.Funcs, fn)
 			}
 		case token.EOF:
 			done = true

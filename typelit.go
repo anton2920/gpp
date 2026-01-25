@@ -29,8 +29,18 @@ type FuncArg struct {
 }
 
 type Func struct {
-	Args   []FuncArg
-	Values []FuncArg
+	Comments []Comment
+
+	/*
+		Receiver   FuncArg
+		Name       string
+		Parameters []FuncArg
+		Results    []FuncArg
+	*/
+
+	BeginOffset     int
+	BodyBeginOffset int
+	BodyEndOffset   int
 }
 
 type Int struct {

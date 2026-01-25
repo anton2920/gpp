@@ -28,6 +28,9 @@ type UnionComment struct {
 	Types []string
 }
 
+type GOXComment struct {
+}
+
 const (
 	LBraces = "{{"
 	RBraces = "}}"
@@ -41,6 +44,7 @@ func (ImportComment) Comment()   {}
 func (InlineComment) Comment()   {}
 func (GenerateComment) Comment() {}
 func (UnionComment) Comment()    {}
+func (GOXComment) Comment()      {}
 
 func AppendComments(cs1 []Comment, cs2 []Comment) []Comment {
 	for _, comment := range cs1 {
@@ -72,7 +76,7 @@ func ProperCut(s string, sep string, ss ...string) (string, string, bool) {
 				continue
 			}
 
-			s2pos := strings.FindSubstring(lval, s2)
+			s2pos := strings.FindSubstring(lval[s1pos+1:], s2)
 			if s2pos >= 0 {
 				continue
 			}
@@ -182,6 +186,9 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 
 						gen := url.Path(s)
 						switch {
+						default:
+							Warnf("unknown generator %q", gen)
+							return false
 						case gen.Match("fill..."):
 							if gen == "" {
 								gc.Generators = append(gc.Generators, GeneratorsFillAll()...)
@@ -227,6 +234,8 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 									lit = rest
 								}
 							}
+						case gen.Match("gox"):
+							gc.Generators = append(gc.Generators, GeneratorGOX{})
 						}
 
 						lit = rest
@@ -262,6 +271,7 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 				}
 
 				*comments = append(*comments, uc)
+			case fn.Match("gox:..."):
 			}
 
 			lit = rest
