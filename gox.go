@@ -126,15 +126,17 @@ func GenerateGOXBody(r *Result, body string) {
 
 		begin := FindTagBegin(body)
 		if (begin == -1) || (begin > 0) {
+			const cutset = "\t\n"
+
 			stmts := []string{"if", "else", "for", "switch"}
 			cases := []string{"case", "default"}
 
 			var otext string
 			if begin == -1 {
-				otext = strings.TrimSpace(body)
+				otext = stdstrings.Trim(body, cutset)
 				body = ""
 			} else {
-				otext = strings.TrimSpace(body[:begin])
+				otext = stdstrings.Trim(body[:begin], cutset)
 				body = body[begin:]
 			}
 
@@ -169,11 +171,11 @@ func GenerateGOXBody(r *Result, body string) {
 				begin := strings.FindSubstring(text, "{")
 				end := strings.FindSubstring(text, "}")
 				if end == -1 {
-					r.Printf("h.LString(`%s`)", text)
+					r.Printf("h.LString(`%s`)", otext)
 					break
 				} else if (end >= 0) && ((begin == -1) || (end < begin)) {
 					if len(strings.TrimSpace(text[:end])) > 0 {
-						r.Printf("h.LString(`%s`)", strings.TrimSpace(text[:end]))
+						r.Printf("h.LString(`%s`)", stdstrings.Trim(text[:end], cutset))
 					}
 					text = text[end:]
 
@@ -194,7 +196,7 @@ func GenerateGOXBody(r *Result, body string) {
 					value := text[begin : end+1]
 
 					if len(strings.TrimSpace(text[:begin])) > 0 {
-						r.Printf("h.LString(`%s`)", text[:begin])
+						r.Printf("h.LString(`%s`)", stdstrings.Trim(text[:begin], cutset))
 					}
 					if value, ok := StripIfFound(value, "{{", "}}"); ok {
 						r.RemoveLastNewline().Line(value)
