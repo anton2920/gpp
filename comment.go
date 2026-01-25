@@ -138,6 +138,7 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 			switch {
 			case fn.Match("nop"):
 				*comments = []Comment{NOPComment{}}
+				p.Position = pos
 				return true
 			case fn.Match("import:..."):
 				var done bool

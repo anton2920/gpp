@@ -168,6 +168,7 @@ func (p *Parser) TypeSpec(ts *TypeSpec) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -201,5 +202,6 @@ func (p *Parser) TypeDecl(tss *[]TypeSpec) bool {
 			return true
 		}
 	}
+
 	return false
 }
