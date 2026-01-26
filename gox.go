@@ -25,14 +25,37 @@ func (g GeneratorGOX) Slice(r *Result, ctx GenerationContext, s *Slice) {}
 func (g GeneratorGOX) Union(r *Result, ctx GenerationContext, u *Union) {}
 
 type QuotedString struct {
+	Key     string
 	Value   string
 	Quoted  bool
 	Present bool
 }
 
+type Attributes map[string]QuotedString
+
+func (attrs Attributes) Get(key string) QuotedString {
+	ret := QuotedString{Key: key}
+
+	v, ok := attrs[key]
+	if ok {
+		ret = v
+	}
+
+	delete(attrs, key)
+	return ret
+}
+
 const HandleComments = true
 
+var IntAttributes = []string{"minlength", "maxlength", "width", "height", "x", "y", "fontSize", "fontWeight", "strokeWidth", "cx", "cy", "r", "rx", "x1", "x2", "y1", "y2"}
+
 func (qv QuotedString) String() string {
+	if SliceContains(IntAttributes, qv.Key) {
+		qv.Quoted = false
+		if !qv.Present {
+			return "0"
+		}
+	}
 	if (qv.Quoted) || (!qv.Present) {
 		return `"` + qv.Value + `"`
 	}
@@ -343,7 +366,7 @@ func GenerateGOXBody(r *Result, body string) {
 					var newr Result
 					var done bool
 
-					attrs := make(map[string]QuotedString)
+					attrs := make(Attributes)
 					r.Backspace()
 					for !done {
 						/* TODO(anton2920): attributes may be '\n'-separated. */
@@ -355,7 +378,7 @@ func GenerateGOXBody(r *Result, body string) {
 						lval, rval, ok := strings.Cut(attr, "=")
 						lval = FixAttr(stdstrings.ToLower(strings.TrimSpace(lval)))
 						if !ok {
-							attrs[lval] = QuotedString{"true", false, true}
+							attrs[lval] = QuotedString{lval, "true", false, true}
 						} else {
 							rval, quoted := StripIfFound(strings.TrimSpace(rval), "\"", "\"")
 							if !quoted {
@@ -369,11 +392,9 @@ func GenerateGOXBody(r *Result, body string) {
 							switch lval {
 							case "classname":
 								lval = "class"
-							case "minlength", "maxlength", "width", "height", "x", "y", "fontSize", "fontWeight", "strokeWidth", "cx", "cy", "r", "rx", "x1", "x2", "y1", "y2":
-								quoted = false
 							}
 
-							attrs[lval] = QuotedString{rval, quoted, true}
+							attrs[lval] = QuotedString{lval, rval, quoted, true}
 						}
 
 						if len(lval) > 0 {
@@ -381,94 +402,41 @@ func GenerateGOXBody(r *Result, body string) {
 						}
 						s = rest
 					}
-					delete(attrs, "xmlns")
 
-					/* Replace empty mandatory attribute with actual value. */
+					/* Replace empty mandatory attributes with actual values. */
 					switch tag {
 					case "a", "link":
-						r.Backspace(len(`"")`)).Printf(`%s)`, attrs["href"]).Backspace()
-						delete(attrs, "href")
+						r.Backspace(len(`"")`)).Printf(`%s)`, attrs.Get("href")).Backspace()
 					case "circle":
-						if cx, ok1 := attrs["cx"]; ok1 {
-							if cy, ok2 := attrs["cy"]; ok2 {
-								if cr, ok3 := attrs["r"]; ok3 {
-									r.Backspace(len(`0, 0, 0)`)).Printf(`%s, %s, %s)`, cx, cy, cr).Backspace()
-									delete(attrs, "cx")
-									delete(attrs, "cy")
-									delete(attrs, "r")
-								}
-							}
-						}
+						r.Backspace(len(`0, 0, 0)`)).Printf(`%s, %s, %s)`, attrs.Get("cx"), attrs.Get("cy"), attrs.Get("r")).Backspace()
 					case "form":
-						r.Backspace(len(`"")`)).Printf(`%s)`, attrs["method"]).Backspace()
+						r.Backspace(len(`"")`)).Printf(`%s)`, attrs.Get("method")).Backspace()
 						delete(attrs, "method")
 					case "img":
-						r.Backspace(len(`"", "")`)).Printf(`%s, %s)`, attrs["alt"], attrs["src"]).Backspace()
-						delete(attrs, "alt")
-						delete(attrs, "src")
+						r.Backspace(len(`"", "")`)).Printf(`%s, %s)`, attrs.Get("alt"), attrs.Get("src")).Backspace()
 					case "line":
-						if x1, ok1 := attrs["x1"]; ok1 {
-							if y1, ok2 := attrs["y1"]; ok2 {
-								if x2, ok3 := attrs["x2"]; ok3 {
-									if y2, ok4 := attrs["y2"]; ok4 {
-										r.Backspace(len(`0, 0, 0, 0)`)).Printf(`%s, %s, %s, %s)`, x1, y1, x2, y2).Backspace()
-										delete(attrs, "x1")
-										delete(attrs, "y1")
-										delete(attrs, "x2")
-										delete(attrs, "y2")
-									}
-								}
-							}
-						}
+						r.Backspace(len(`0, 0, 0, 0)`)).Printf(`%s, %s, %s, %s)`, attrs.Get("x1"), attrs.Get("y1"), attrs.Get("x2"), attrs.Get("y2")).Backspace()
 					case "svg":
-						if width, ok1 := attrs["width"]; ok1 {
-							if height, ok2 := attrs["height"]; ok2 {
-								r.Backspace(len(`0, 0)`)).Printf(`%s, %s)`, width, height).Backspace()
-								delete(attrs, "width")
-								delete(attrs, "height")
-							}
-						}
+						r.Backspace(len(`0, 0)`)).Printf(`%s, %s)`, attrs.Get("width"), attrs.Get("height")).Backspace()
+						delete(attrs, "xmlns")
 					case "text":
-						if x, ok1 := attrs["x"]; ok1 {
-							if y, ok2 := attrs["y"]; ok2 {
-								r.Backspace(len(`0, 0)`)).Printf(`%s, %s)`, x, y).Backspace()
-								delete(attrs, "x")
-								delete(attrs, "y")
-							}
-						}
+						r.Backspace(len(`0, 0)`)).Printf(`%s, %s)`, attrs.Get("x"), attrs.Get("y")).Backspace()
 					case "path":
-						r.Backspace(len(`"")`)).Printf(`%s)`, attrs["d"]).Backspace()
-						delete(attrs, "d")
+						r.Backspace(len(`"")`)).Printf(`%s)`, attrs.Get("d")).Backspace()
 					case "rect":
-						if x, ok1 := attrs["x"]; ok1 {
-							if y, ok2 := attrs["y"]; ok2 {
-								if width, ok3 := attrs["width"]; ok3 {
-									if height, ok4 := attrs["height"]; ok4 {
-										if rx, ok5 := attrs["rx"]; ok5 {
-											r.Backspace(len(`0, 0, 0, 0, 0)`)).Printf(`%s, %s, %s, %s, %s)`, x, y, width, height, rx).Backspace()
-											delete(attrs, "x")
-											delete(attrs, "y")
-											delete(attrs, "width")
-											delete(attrs, "height")
-											delete(attrs, "rx")
-										}
-									}
-								}
-							}
-						}
+						r.Backspace(len(`0, 0, 0, 0, 0)`)).Printf(`%s, %s, %s, %s, %s)`, attrs.Get("x"), attrs.Get("y"), attrs.Get("width"), attrs.Get("height"), attrs.Get("rx")).Backspace()
 					case "input":
-						switch attrs["type"].Value {
+						switch attrs.Get("type").Value {
 						case "":
 							/* Do nothing. */
 						default:
-							r.Backspace(len(`"")`)).Printf(`%s)`, attrs["type"]).Backspace()
+							r.Backspace(len(`"")`)).Printf(`%s)`, attrs.Get("type")).Backspace()
 						case "checkbox":
 							r.Backspace(len(`h.Input2("")`)).Line("h.Checkbox2()").Backspace()
 						case "submit":
-							r.Backspace(len(`h.Input2("")`)).Printf(`h.Button2(%s)`, attrs["value"]).Backspace()
+							r.Backspace(len(`h.Input2("")`)).Printf(`h.Button2(%s)`, attrs.Get("value")).Backspace()
 							delete(attrs, "value")
 						}
-						delete(attrs, "type")
 					}
 
 					if !customTag {
@@ -478,12 +446,13 @@ func GenerateGOXBody(r *Result, body string) {
 							}
 						}
 					} else {
-						class := -1
+						var appendAfter []string
 
 						r.Backspace()
-						for i, k := range keys {
-							if k == "class" {
-								class = i
+						for _, k := range keys {
+							switch k {
+							case "class", "style":
+								appendAfter = append(appendAfter, k)
 								continue
 							}
 							if v, ok := attrs[k]; ok {
@@ -493,8 +462,12 @@ func GenerateGOXBody(r *Result, body string) {
 						}
 						newr.Line(")").Backspace()
 
-						if class >= 0 {
-							newr.Printf(".Class(%s)", attrs[keys[class]]).Backspace()
+						if len(appendAfter) > 0 {
+							for _, k := range appendAfter {
+								if v, ok := attrs[k]; ok {
+									newr.Printf(".%s(%s)", stdstrings.Title(k), v).Backspace()
+								}
+							}
 						}
 					}
 
