@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"flag"
 	"fmt"
 	"go/token"
@@ -173,7 +174,7 @@ func main() {
 			file := &files[i]
 			fileName := file.Name
 
-			r := Result{File: file}
+			r := Result{File: file, Buffer: new(bytes.Buffer)}
 			for _, spec := range file.Specs {
 				if len(spec.Comments) > 0 {
 					for _, comment := range spec.Comments {

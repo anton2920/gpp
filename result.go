@@ -15,11 +15,13 @@ import (
 type Result struct {
 	File *File
 
-	Buffer bytes.Buffer
+	Buffer *bytes.Buffer
 	Tabs   int
 
 	DoImports Imports
 	Constants []Constant
+
+	withoutTabs *Result
 }
 
 const GeneratedSuffix = "_gpp"
@@ -89,6 +91,21 @@ func (r *Result) RemoveLastNewline() *Result {
 		r.Backspace()
 	}
 	return r
+}
+
+func (r *Result) RemoveEmptyStringBlock() *Result {
+	var ntabs string
+	for i := 0; i < r.Tabs; i++ {
+		ntabs += "\t"
+	}
+	suffix := ntabs + "h.String(``)\n"
+	if strings.EndsWith(r.Buffer.String(), suffix) {
+		r.Backspace(len(suffix))
+	}
+	if r.Buffer.String()[:r.Buffer.Len()-1] != "\n" {
+		r.Buffer.WriteRune('\n')
+	}
+	return r.RemoveLastNewline()
 }
 
 func (r *Result) Dump(w io.Writer) (int64, error) {
@@ -193,7 +210,7 @@ func (r *Result) DoTabs(s string) {
 
 func (r *Result) Printf(format string, args ...interface{}) *Result {
 	r.DoTabs(format)
-	fmt.Fprintf(&r.Buffer, format, args...)
+	fmt.Fprintf(r.Buffer, format, args...)
 	r.Buffer.WriteRune('\n')
 	return r
 }
@@ -209,6 +226,14 @@ func (r *Result) Rune(c rune) *Result {
 	r.DoTabs("")
 	r.Buffer.WriteRune(c)
 	return r
+}
+
+func (r *Result) WithoutTabs() *Result {
+	if r.withoutTabs != nil {
+		return r.withoutTabs
+	}
+	r.withoutTabs = &Result{File: r.File, Buffer: r.Buffer, DoImports: r.DoImports, Constants: r.Constants}
+	return r.withoutTabs
 }
 
 func GeneratedName(filename string) string {

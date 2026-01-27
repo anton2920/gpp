@@ -1,3 +1,3 @@
 #!/bin/sh
 
-./make.sh $@ && ./gpp -l -r testdata/
+./make.sh $@ && ./make.sh vet && ./gpp -l -r testdata/

@@ -28,7 +28,7 @@ var groups [][]string
 var user *User
 
 //gpp:generate: gox
-func TestPage(h *html.HTML) {
+func TestPage(h *html.HTML, i int) {
 	<!DOCTYPE html>
 
 	<head>
@@ -40,15 +40,17 @@ func TestPage(h *html.HTML) {
 
 		<h1>Hello!</h1>
 
-		<div>
+		<div aria-label="whatever">
 			<h1>
-				if 1 == 1 {
+				if i == 1 {
 					true
 				} else {
 					false
 				}
 			</h1>
 		</div>
+		
+		<hr/>
 
 		<UserTitle className="text-center" user={user}/>
 
