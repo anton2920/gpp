@@ -276,10 +276,12 @@ func EndStringBlock(r *Result) *Result {
 	return r.WithoutTabs().Line("`)")
 }
 
-func GenerateGOXBody(r *Result, body string, comments []Comment) {
+func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment) {
+	const withoutThemeTag = "notheme"
+
+	var in, withoutTheme bool
 	var codeBlock string
 	var nblocks int
-	var in bool
 
 	gc := MergeGOXComments(comments)
 	for len(body) > 0 {
@@ -443,6 +445,11 @@ func GenerateGOXBody(r *Result, body string, comments []Comment) {
 				otag := strings.TrimSpace(s)
 				tag := stdstrings.ToLower(otag)
 
+				if otag == withoutThemeTag {
+					withoutTheme = false
+					continue
+				}
+
 				if gc.DoNotOptimize {
 					switch {
 					case (SliceContains(noAttributesBlock, tag)) || (SliceContains(attributesBlock, tag)) || (SliceContains([]string{"svg"}, tag)):
@@ -493,7 +500,13 @@ func GenerateGOXBody(r *Result, body string, comments []Comment) {
 				var createBlock, extraNewline, customTag, selfClosed bool
 
 				otag, rest, ok := strings.Cut(s, " ")
-				tag := stdstrings.ToLower(strings.TrimSpace(otag))
+				otag = strings.TrimSpace(otag)
+				tag := stdstrings.ToLower(otag)
+
+				if otag == withoutThemeTag {
+					withoutTheme = true
+					continue
+				}
 
 				if gc.DoNotOptimize {
 					switch {
@@ -566,7 +579,7 @@ func GenerateGOXBody(r *Result, body string, comments []Comment) {
 						ok = false
 					case "head":
 						r.WithoutTabs().Printf("<%s>", tag).Backspace().Line(`<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">`).Backspace()
-						if gc.Theme != nil {
+						if (!withoutTheme) && (gc.Theme != nil) {
 							if v, ok := gc.Theme["headlink"]; ok {
 								r.WithoutTabs().Printf(`<link href=%s rel=%s>`, v.Get("href"), v.Get("rel")).Backspace()
 							}
@@ -648,7 +661,7 @@ func GenerateGOXBody(r *Result, body string, comments []Comment) {
 					}
 				}
 
-				if gc.Theme != nil {
+				if (!withoutTheme) && (gc.Theme != nil) {
 					if tattrs, ok := gc.Theme[tag]; ok {
 						for k := range tattrs {
 							if !SliceContains(keys, k) {
@@ -780,5 +793,5 @@ func GenerateGOX(r *Result, p *Parser, fn *Func) {
 	if GOXGlobalTheme != nil {
 		comments = append([]Comment{*GOXGlobalTheme}, fn.Comments...)
 	}
-	GenerateGOXBody(r, r.File.Source[fn.BodyBeginOffset+1:fn.BodyEndOffset-1], comments)
+	GenerateGOXBody(r, p, r.File.Source[fn.BodyBeginOffset+1:fn.BodyEndOffset-1], comments)
 }

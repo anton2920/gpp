@@ -63,7 +63,7 @@ func TestPage(h *html.HTML, i int) {
 		<UserTitle className="text-center" user={user}/>
 
 		<Crumbs>
-			<Crumb><a class="text-decoration" href="/">Home</a></Crumb>
+			<Crumb><notheme><a class="text-decoration" href="/">Home</a></notheme></Crumb>
 	    		<Crumb><a href={h.PathID("/user/", user.ID)}></a></Crumb>
 		</Crumbs>
 
