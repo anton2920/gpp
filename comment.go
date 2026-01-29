@@ -28,9 +28,6 @@ type UnionComment struct {
 	Types []string
 }
 
-type GOXComment struct {
-}
-
 const (
 	LBraces = "{{"
 	RBraces = "}}"
@@ -44,7 +41,6 @@ func (ImportComment) Comment()   {}
 func (InlineComment) Comment()   {}
 func (GenerateComment) Comment() {}
 func (UnionComment) Comment()    {}
-func (GOXComment) Comment()      {}
 
 func AppendComments(cs1 []Comment, cs2 []Comment) []Comment {
 	for _, comment := range cs1 {
@@ -272,6 +268,11 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 
 				*comments = append(*comments, uc)
 			case fn.Match("gox:..."):
+				var gc GOXComment
+				if !ParseGOXComment(string(fn), &gc) {
+					continue
+				}
+				*comments = append(*comments, gc)
 			}
 
 			lit = rest

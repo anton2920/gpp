@@ -2,6 +2,12 @@ package main
 
 import "github.com/anton2920/gofa/net/html"
 
+/*gpp:gox: Global, Theme={{
+	A: {Class: "text-decoration-none"},
+	HeadLink: {Href: "/fs/assets/css/style.css", Rel: "stylesheet"},
+	HeadScript: {Src: "/fs/assets/js/script.js"},
+}}*/
+
 func DisplayHeader(h *html.HTML) {
 }
 
@@ -28,6 +34,8 @@ var groups [][]string
 var user *User
 
 //gpp:generate: gox
+///gpp:gox: -C, -N, -l
+//gpp:gox: Theme={{Body: {Style: "max-width: 1100px; margin 0px auto;"}}}
 func TestPage(h *html.HTML, i int) {
 	<!DOCTYPE html>
 
@@ -55,7 +63,7 @@ func TestPage(h *html.HTML, i int) {
 		<UserTitle className="text-center" user={user}/>
 
 		<Crumbs>
-			<Crumb><a href="/">Home</a></Crumb>
+			<Crumb><a class="text-decoration" href="/">Home</a></Crumb>
 	    		<Crumb><a href={h.PathID("/user/", user.ID)}></a></Crumb>
 		</Crumbs>
 

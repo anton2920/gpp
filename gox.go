@@ -32,7 +32,20 @@ type QuotedString struct {
 	Present bool
 }
 
-type Attributes map[string]QuotedString
+type (
+	Attributes map[string]QuotedString
+	Theme      map[string]Attributes
+)
+
+type GOXComment struct {
+	Theme Theme
+
+	HandleComments bool
+	DoNotOptimize  bool
+	DoNotInline    bool
+}
+
+func (GOXComment) Comment() {}
 
 func (attrs Attributes) Get(key string) QuotedString {
 	ret := QuotedString{Key: key}
@@ -46,13 +59,11 @@ func (attrs Attributes) Get(key string) QuotedString {
 	return ret
 }
 
-const (
-	HandleComments = true
-	Optimize       = false
-	Inline         = false
-)
+var GOXGlobalTheme *GOXComment
 
 var IntAttributes = []string{"minlength", "maxlength", "width", "height", "x", "y", "fontSize", "fontWeight", "strokeWidth", "cx", "cy", "r", "rx", "x1", "x2", "y1", "y2"}
+
+var AppendAttributes = []string{"class", "style"}
 
 func (qv QuotedString) String() string {
 	if SliceContains(IntAttributes, qv.Key) {
@@ -65,6 +76,119 @@ func (qv QuotedString) String() string {
 		return `"` + qv.Value + `"`
 	}
 	return qv.Value
+}
+
+func MergeGOXAttributes(a1 Attributes, a2 Attributes) Attributes {
+	res := make(Attributes)
+	for k, v := range a1 {
+		res[k] = v
+	}
+	for k, v := range a2 {
+		rk, ok := res[k]
+		if (ok) && (SliceContains(AppendAttributes, k)) && (!SliceContains(stdstrings.Split(rk.Value, " "), v.Value)) {
+			res[k] = QuotedString{k, stdstrings.Join([]string{rk.Value, v.Value}, " "), true, true}
+		} else {
+			res[k] = v
+		}
+	}
+	return res
+}
+
+func MergeGOXComments(comments []Comment) GOXComment {
+	var gc GOXComment
+	for _, comment := range comments {
+		if c, ok := comment.(GOXComment); ok {
+			if c.Theme != nil {
+				if gc.Theme == nil {
+					gc.Theme = make(Theme)
+				}
+				for k := range c.Theme {
+					gc.Theme[k] = MergeGOXAttributes(gc.Theme[k], c.Theme[k])
+				}
+			}
+			gc.HandleComments = gc.HandleComments || c.HandleComments
+			gc.DoNotOptimize = gc.DoNotOptimize || c.DoNotOptimize
+			gc.DoNotInline = gc.DoNotInline || c.DoNotInline
+		}
+	}
+	return gc
+}
+
+func ParseGOXComment(comment string, gc *GOXComment) bool {
+	var done bool
+	for !done {
+		s, rest, ok := ProperCut(comment, ",", LBraces, RBraces)
+		if !ok {
+			done = true
+		}
+
+		lval, rval, ok := strings.Cut(s, "=")
+		lval = stdstrings.ToLower(strings.TrimSpace(lval))
+		if !ok {
+			switch lval {
+			case "global":
+				GOXGlobalTheme = gc
+			case "-c":
+				gc.HandleComments = true
+			case "-n":
+				gc.DoNotOptimize = true
+			case "-l":
+				gc.DoNotInline = true
+			}
+		} else {
+			switch lval {
+			case "theme":
+				rval, ok := StripIfFound(strings.TrimSpace(rval), LBraces, RBraces)
+				if ok {
+					var done bool
+					for !done {
+						entry, rest, ok := ProperCut(rval, ",", "{", "}")
+						if !ok {
+							done = true
+						}
+						entry = strings.TrimSpace(entry)
+
+						tag, sattrs, ok := strings.Cut(entry, ":")
+						if ok {
+							tag = stdstrings.ToLower(tag)
+							sattrs, ok := StripIfFound(strings.TrimSpace(sattrs), "{", "}")
+							if ok {
+								var done bool
+
+								attrs := make(Attributes)
+								for !done {
+									entry, rest, ok := strings.Cut(sattrs, ",")
+									if !ok {
+										done = true
+									}
+
+									attr, value, ok := strings.Cut(entry, ":")
+									if ok {
+										attr := FixAttr(stdstrings.ToLower(strings.TrimSpace(attr)))
+										value, quoted := StripIfFound(strings.TrimSpace(value), "\"", "\"")
+										attrs[attr] = QuotedString{attr, value, quoted, true}
+									}
+
+									sattrs = rest
+								}
+
+								if gc.Theme == nil {
+									gc.Theme = make(Theme)
+								}
+								gc.Theme[tag] = attrs
+							}
+						}
+
+						rval = rest
+					}
+				}
+			}
+		}
+
+		comment = rest
+	}
+
+	return true
 }
 
 func SliceContains(xs []string, s string) bool {
@@ -152,11 +276,12 @@ func EndStringBlock(r *Result) *Result {
 	return r.WithoutTabs().Line("`)")
 }
 
-func GenerateGOXBody(r *Result, body string) {
+func GenerateGOXBody(r *Result, body string, comments []Comment) {
 	var codeBlock string
 	var nblocks int
 	var in bool
 
+	gc := MergeGOXComments(comments)
 	for len(body) > 0 {
 		var i int
 
@@ -276,7 +401,7 @@ func GenerateGOXBody(r *Result, body string) {
 				break
 			}
 
-			if (Optimize) && (!in) {
+			if (!gc.DoNotOptimize) && (!in) {
 				BeginStringBlock(r)
 				in = true
 			}
@@ -284,7 +409,7 @@ func GenerateGOXBody(r *Result, body string) {
 			if strings.StartsWith(body, "<!--") {
 				end = strings.FindSubstring(body, "-->")
 
-				if (!Optimize) && (HandleComments) {
+				if (gc.DoNotOptimize) && (gc.HandleComments) {
 					comment := body[begin+len("<!--") : end]
 					lines := stdstrings.Split(comment, "\n")
 					if len(lines) == 1 {
@@ -318,7 +443,7 @@ func GenerateGOXBody(r *Result, body string) {
 				otag := strings.TrimSpace(s)
 				tag := stdstrings.ToLower(otag)
 
-				if !Optimize {
+				if gc.DoNotOptimize {
 					switch {
 					case (SliceContains(noAttributesBlock, tag)) || (SliceContains(attributesBlock, tag)) || (SliceContains([]string{"svg"}, tag)):
 						r.RemoveLastNewline().Line("}")
@@ -348,12 +473,6 @@ func GenerateGOXBody(r *Result, body string) {
 							in = false
 						}
 						r.Line("").Line("h.End2()")
-					case "head":
-						if in {
-							EndStringBlock(r)
-							in = false
-						}
-						r.RemoveEmptyStringBlock().Line("}").Line("h.HeadEnd2()").Line("")
 					default:
 						if (otag == stdstrings.ToUpper(otag)) || (otag != stdstrings.Title(otag)) {
 							r.WithoutTabs().Printf("</%s>", tag).Backspace()
@@ -376,7 +495,7 @@ func GenerateGOXBody(r *Result, body string) {
 				otag, rest, ok := strings.Cut(s, " ")
 				tag := stdstrings.ToLower(strings.TrimSpace(otag))
 
-				if !Optimize {
+				if gc.DoNotOptimize {
 					switch {
 					case SliceContains(codeBlocks, tag):
 						codeBlock = tag
@@ -392,6 +511,7 @@ func GenerateGOXBody(r *Result, body string) {
 					case SliceContains(attributesNoBlock, tag):
 						r.Printf(`h.%sBegin2("")`, stdstrings.Title(tag))
 					default:
+						tag, _ = StripIfFound(tag, "", "/")
 						switch tag {
 						case "!doctype":
 							r.Line("h.Begin2()\n")
@@ -419,7 +539,7 @@ func GenerateGOXBody(r *Result, body string) {
 							r.Printf(`h.%s2(0, 0, 0, 0, 0)`, stdstrings.Title(tag))
 						default:
 							if (otag == stdstrings.ToUpper(otag)) || (otag != stdstrings.Title(otag)) {
-								Warnf("unhandled %q", tag)
+								Warnf("unhandled %q", otag)
 								continue
 							} else {
 								if (strings.EndsWith(otag, "/")) || (strings.EndsWith(rest, "/")) {
@@ -445,13 +565,15 @@ func GenerateGOXBody(r *Result, body string) {
 						r.RemoveEmptyStringBlock().Line("h.Begin2()\n")
 						ok = false
 					case "head":
-						/* TODO(anton2920): remove later in favor of //gpp:gox: Theme. */
-						if in {
-							EndStringBlock(r)
-							in = false
+						r.WithoutTabs().Printf("<%s>", tag).Backspace().Line(`<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">`).Backspace()
+						if gc.Theme != nil {
+							if v, ok := gc.Theme["headlink"]; ok {
+								r.WithoutTabs().Printf(`<link href=%s rel=%s>`, v.Get("href"), v.Get("rel")).Backspace()
+							}
+							if v, ok := gc.Theme["headscript"]; ok {
+								r.WithoutTabs().Printf(`<script src=%s></script>`, v.Get("src")).Backspace()
+							}
 						}
-						r.RemoveEmptyStringBlock().Line("h.HeadBegin2()")
-						createBlock = true
 					default:
 						if (otag == stdstrings.ToUpper(otag)) || (otag != stdstrings.Title(otag)) {
 							r.WithoutTabs().Printf("<%s>", tag).Backspace()
@@ -477,17 +599,22 @@ func GenerateGOXBody(r *Result, body string) {
 				r.Tabs = 0
 
 				s, selfClosed = StripIfFound(rest, "", "/")
-				if ok {
-					var keys []string
-					var done bool
 
-					attrs := make(Attributes)
-					if !Optimize {
-						r.Backspace()
-					}
+				var keys []string
+				attrs := make(Attributes)
+				if ok {
+					var done bool
 					for !done {
-						/* TODO(anton2920): attributes may be '\n'-separated. */
-						attr, rest, ok := ProperCut(s, " ", "\"", "\"", "{{", "}}", "{", "}")
+						sep := " "
+						/* TODO(anton2920): handle '\n' as attribute separator. */
+						if false {
+							nl := strings.FindChar(s, '\n')
+							if (nl >= 0) && (nl < end) {
+								sep = "\n"
+							}
+						}
+
+						attr, rest, ok := ProperCut(s, sep, "\"", "\"", "{{", "}}", "{", "}")
 						if !ok {
 							done = true
 						}
@@ -519,9 +646,24 @@ func GenerateGOXBody(r *Result, body string) {
 						}
 						s = rest
 					}
+				}
 
-					/* Replace empty mandatory attributes with actual values. */
-					if !Optimize {
+				if gc.Theme != nil {
+					if tattrs, ok := gc.Theme[tag]; ok {
+						for k := range tattrs {
+							if !SliceContains(keys, k) {
+								keys = append(keys, k)
+							}
+						}
+						attrs = MergeGOXAttributes(tattrs, attrs)
+					}
+				}
+
+				if len(attrs) > 0 {
+					if gc.DoNotOptimize {
+						r.Backspace()
+
+						/* Replace empty mandatory attributes with actual values. */
 						switch tag {
 						case "a", "link":
 							r.Backspace(len(`"")`)).Printf(`%s)`, attrs.Get("href")).Backspace()
@@ -562,7 +704,7 @@ func GenerateGOXBody(r *Result, body string) {
 						needTranslation := []string{"alt", "placeholder", "value"}
 						for _, k := range keys {
 							if v, ok := attrs[k]; ok {
-								if !Optimize {
+								if gc.DoNotOptimize {
 									r.Printf(".%s(%s)", stdstrings.Title(k), v).Backspace()
 								} else {
 									if (SliceContains(needTranslation, k)) || ((!v.Quoted) && (v.Value != "true")) {
@@ -591,10 +733,9 @@ func GenerateGOXBody(r *Result, body string) {
 					} else {
 						var appendAfter []string
 
-						r.Backspace(1 + bools.ToInt(Optimize))
+						r.Backspace(1 + bools.ToInt(!gc.DoNotOptimize))
 						for _, k := range keys {
-							switch k {
-							case "class", "style":
+							if SliceContains(AppendAttributes, k) {
 								appendAfter = append(appendAfter, k)
 								continue
 							}
@@ -614,7 +755,7 @@ func GenerateGOXBody(r *Result, body string) {
 						}
 					}
 
-					if (!Optimize) || (!in) {
+					if (gc.DoNotOptimize) || (!in) {
 						r.Line("")
 					}
 				}
@@ -635,5 +776,9 @@ func GenerateGOXBody(r *Result, body string) {
 }
 
 func GenerateGOX(r *Result, p *Parser, fn *Func) {
-	GenerateGOXBody(r, r.File.Source[fn.BodyBeginOffset+1:fn.BodyEndOffset-1])
+	comments := fn.Comments
+	if GOXGlobalTheme != nil {
+		comments = append([]Comment{*GOXGlobalTheme}, fn.Comments...)
+	}
+	GenerateGOXBody(r, r.File.Source[fn.BodyBeginOffset+1:fn.BodyEndOffset-1], comments)
 }
