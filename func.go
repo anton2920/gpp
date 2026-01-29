@@ -17,6 +17,9 @@ func (p *Parser) Func(fn *Func) bool {
 	if p.Token(token.FUNC) {
 		fn.Comments = comments
 
+		p.Ident(&fn.Name)
+		p.Error = nil
+
 		/* TODO(anton2920): do a proper function parsing. */
 		for p.Curr().GoToken != token.LBRACE {
 			p.Next()

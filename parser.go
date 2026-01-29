@@ -113,3 +113,18 @@ func (p *Parser) FindTypeLit(is Imports, pkg string, typeName string) TypeLit {
 
 	return nil
 }
+
+func (p *Parser) FindFunction(is Imports, pkg string, funcName string) *Func {
+	pkgPath := is.PackageName(pkg)
+
+	for _, parsedFile := range p.Packages[pkgPath] {
+		for i := 0; i < len(parsedFile.Funcs); i++ {
+			fn := &parsedFile.Funcs[i]
+			if fn.Name == funcName {
+				return fn
+			}
+		}
+	}
+
+	return nil
+}

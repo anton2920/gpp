@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	stdstrings "strings"
 	"unicode"
 
@@ -268,6 +269,21 @@ func UnfixAttr(s string) string {
 	return buf.String()
 }
 
+func IsGOXFunction(fn *Func) bool {
+	if fn != nil {
+		for _, comment := range fn.Comments {
+			if c, ok := comment.(GenerateComment); ok {
+				for _, gen := range c.Generators {
+					if _, ok := gen.(GeneratorGOX); ok {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
+}
+
 func BeginStringBlock(r *Result) *Result {
 	return r.Line("h.String(`").Backspace()
 }
@@ -468,7 +484,14 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment) {
 								if strings.EndsWith(otag, "s") {
 									r.RemoveLastNewline().Line("}")
 								}
-								r.RemoveLastNewline().Printf(`Display%sEnd(h)`, otag).Line("")
+
+								name := fmt.Sprintf("Display%sEnd", otag)
+								fn := p.FindFunction(r.File.Imports, "main", name)
+								if (!gc.DoNotInline) && (IsGOXFunction(fn)) {
+									GenerateGOX(r.RemoveLastNewline(), p, fn)
+								} else {
+									r.RemoveLastNewline().Printf(`%s(h)`, name).Line("")
+								}
 							}
 						}
 					}
@@ -555,14 +578,23 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment) {
 								Warnf("unhandled %q", otag)
 								continue
 							} else {
+								var name string
+
 								if (strings.EndsWith(otag, "/")) || (strings.EndsWith(rest, "/")) {
 									otag, _ = StripIfFound(otag, "", "/")
-									r.Printf(`Display%s(h)`, otag)
+									name = fmt.Sprintf(`Display%s`, otag)
 								} else {
-									r.Printf(`Display%sBegin(h)`, otag)
-									if strings.EndsWith(otag, "s") {
-										createBlock = true
-									}
+									name = fmt.Sprintf(`Display%sBegin`, otag)
+								}
+
+								fn := p.FindFunction(r.File.Imports, "main", name)
+								if (!gc.DoNotInline) && (IsGOXFunction(fn)) {
+									GenerateGOX(r, p, fn)
+								} else {
+									r.Printf("%s(h)", name)
+								}
+								if strings.EndsWith(otag, "s") {
+									createBlock = true
 								}
 								customTag = true
 							}
@@ -699,7 +731,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment) {
 						case "rect":
 							r.Backspace(len(`0, 0, 0, 0, 0)`)).Printf(`%s, %s, %s, %s, %s)`, attrs.Get("x"), attrs.Get("y"), attrs.Get("width"), attrs.Get("height"), attrs.Get("rx")).Backspace()
 						case "input":
-							switch attrs.Get("type").Value {
+							switch attrs["type"].Value {
 							case "":
 								/* Do nothing. */
 							default:
@@ -713,7 +745,30 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment) {
 						}
 					}
 
-					if !customTag {
+					if customTag {
+						var appendAfter []string
+
+						r.Backspace(1 + bools.ToInt(!gc.DoNotOptimize))
+						for _, k := range keys {
+							if SliceContains(AppendAttributes, k) {
+								appendAfter = append(appendAfter, k)
+								continue
+							}
+							if v, ok := attrs[k]; ok {
+								r.Line(", ").Backspace()
+								r.Line(v.String()).Backspace()
+							}
+						}
+						r.Line(")").Backspace()
+
+						if len(appendAfter) > 0 {
+							for _, k := range appendAfter {
+								if v, ok := attrs[k]; ok {
+									r.Printf(".%s(%s)", stdstrings.Title(k), v).Backspace()
+								}
+							}
+						}
+					} else {
 						needTranslation := []string{"alt", "placeholder", "value"}
 						for _, k := range keys {
 							if v, ok := attrs[k]; ok {
@@ -740,29 +795,6 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment) {
 											r.WithoutTabs().Backspace().Printf(` %s="%s">`, UnfixAttr(k), v.Value).Backspace()
 										}
 									}
-								}
-							}
-						}
-					} else {
-						var appendAfter []string
-
-						r.Backspace(1 + bools.ToInt(!gc.DoNotOptimize))
-						for _, k := range keys {
-							if SliceContains(AppendAttributes, k) {
-								appendAfter = append(appendAfter, k)
-								continue
-							}
-							if v, ok := attrs[k]; ok {
-								r.Line(", ").Backspace()
-								r.Line(v.String()).Backspace()
-							}
-						}
-						r.Line(")").Backspace()
-
-						if len(appendAfter) > 0 {
-							for _, k := range appendAfter {
-								if v, ok := attrs[k]; ok {
-									r.Printf(".%s(%s)", stdstrings.Title(k), v).Backspace()
 								}
 							}
 						}

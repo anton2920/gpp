@@ -8,22 +8,35 @@ import "github.com/anton2920/gofa/net/html"
 	HeadScript: {Src: "/fs/assets/js/script.js"},
 }}*/
 
+
+//gpp:generate: gox
 func DisplayHeader(h *html.HTML) {
+	<div class="header"></div>
 }
 
+//gpp:generate: gox
 func DisplayFooter(h *html.HTML) {
+	<div class="footer"></div>
 }
 
+//gpp:generate: gox
 func DisplayCrumbsBegin(h *html.HTML) {
+	<div class="crumbs">
 }
 
+//gpp:generate: gox
 func DisplayCrumbBegin(h *html.HTML) {
+	<div class="crumb">
 }
 
+//gpp:generate: gox
 func DisplayCrumbEnd(h *html.HTML) {
+	</div>
 }
 
+//gpp:generate: gox
 func DisplayCrumbsEnd(h *html.HTML) {
+	</div>
 }
 
 func DisplayUserTitle(h *html.HTML, user *User) *html.HTML {
@@ -34,7 +47,7 @@ var groups [][]string
 var user *User
 
 //gpp:generate: gox
-///gpp:gox: -C, -N, -l
+//gpp:gox: -C, -N
 //gpp:gox: Theme={{Body: {Style: "max-width: 1100px; margin 0px auto;"}}}
 func TestPage(h *html.HTML, i int) {
 	<!DOCTYPE html>
@@ -57,7 +70,7 @@ func TestPage(h *html.HTML, i int) {
 				}
 			</h1>
 		</div>
-		
+
 		<hr/>
 
 		<UserTitle className="text-center" user={user}/>

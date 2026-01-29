@@ -33,10 +33,11 @@ type Func struct {
 
 	/*
 		Receiver   FuncArg
-		Name       string
 		Parameters []FuncArg
 		Results    []FuncArg
 	*/
+
+	Name string
 
 	BeginOffset     int
 	BodyBeginOffset int
