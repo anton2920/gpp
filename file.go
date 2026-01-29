@@ -62,6 +62,7 @@ func (p *Parser) File(f *token.File, file *File, processedPackages map[string]st
 				if !p.Func(&fn) {
 					p.Error = fmt.Errorf("failed to parse func declaration: %v", p.Error)
 				}
+				fn.Body = file.Source[fn.BodyBeginOffset+1 : fn.BodyEndOffset-1]
 				file.Funcs = append(file.Funcs, fn)
 			}
 		case token.EOF:

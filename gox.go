@@ -292,23 +292,18 @@ func EndStringBlock(r *Result) *Result {
 	return r.WithoutTabs().Line("`)")
 }
 
-func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment) {
+func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in bool) {
 	const withoutThemeTag = "notheme"
 
-	var in, withoutTheme bool
+	var withoutTheme bool
 	var codeBlock string
 	var nblocks int
 
 	gc := MergeGOXComments(comments)
-	for len(body) > 0 {
-		var i int
+	wasIn := in
 
-		for i = 0; i < len(body); i++ {
-			if !unicode.IsSpace(rune(body[i])) {
-				break
-			}
-		}
-		body = body[i:]
+	for len(body) > 0 {
+		body = strings.TrimSpace(body)
 
 		if len(codeBlock) > 0 {
 			needle := "</" + codeBlock + ">"
@@ -507,14 +502,20 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment) {
 						if (otag == stdstrings.ToUpper(otag)) || (otag != stdstrings.Title(otag)) {
 							r.WithoutTabs().Printf("</%s>", tag).Backspace()
 						} else {
-							if in {
-								EndStringBlock(r)
-								in = false
+							name := fmt.Sprintf("Display%sEnd", otag)
+							fn := p.FindFunction(r.File.Imports, "main", name)
+							if (!gc.DoNotInline) && (IsGOXFunction(fn)) {
+								GenerateGOXEx(r.RemoveLastNewline(), p, fn, in)
+							} else {
+								if in {
+									EndStringBlock(r)
+									in = false
+								}
+								if strings.EndsWith(otag, "s") {
+									r.RemoveEmptyStringBlock().RemoveLastNewline().Line("}")
+								}
+								r.RemoveEmptyStringBlock().Printf(`%s(h)`, name).Line("")
 							}
-							if strings.EndsWith(otag, "s") {
-								r.RemoveEmptyStringBlock().RemoveLastNewline().Line("}")
-							}
-							r.RemoveEmptyStringBlock().Printf(`Display%sEnd(h)`, otag).Line("")
 						}
 					}
 
@@ -588,15 +589,15 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment) {
 								}
 
 								fn := p.FindFunction(r.File.Imports, "main", name)
-								if (!gc.DoNotInline) && (IsGOXFunction(fn)) {
+								if (!gc.DoNotInline) && (IsGOXFunction(fn)) && (!ok) {
 									GenerateGOX(r, p, fn)
 								} else {
 									r.Printf("%s(h)", name)
+									if strings.EndsWith(otag, "s") {
+										createBlock = true
+									}
+									customTag = true
 								}
-								if strings.EndsWith(otag, "s") {
-									createBlock = true
-								}
-								customTag = true
 							}
 						}
 					}
@@ -623,20 +624,30 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment) {
 						if (otag == stdstrings.ToUpper(otag)) || (otag != stdstrings.Title(otag)) {
 							r.WithoutTabs().Printf("<%s>", tag).Backspace()
 						} else {
-							if in {
-								EndStringBlock(r)
-								in = false
-							}
+							var name string
+
 							if (strings.EndsWith(otag, "/")) || (strings.EndsWith(rest, "/")) {
 								otag, _ = StripIfFound(otag, "", "/")
-								r.RemoveEmptyStringBlock().Printf(`Display%s(h)`, otag)
+								name = fmt.Sprintf(`Display%s`, otag)
 							} else {
-								r.RemoveEmptyStringBlock().Printf(`Display%sBegin(h)`, otag)
+								name = fmt.Sprintf(`Display%sBegin`, otag)
+							}
+
+							fn := p.FindFunction(r.File.Imports, "main", name)
+							if (!gc.DoNotInline) && (IsGOXFunction(fn)) && (!ok) {
+								//runtime.Breakpoint()
+								GenerateGOXEx(r, p, fn, in)
+							} else {
+								if in {
+									EndStringBlock(r)
+									in = false
+								}
+								r.Printf("%s(h)", name)
 								if strings.EndsWith(otag, "s") {
 									createBlock = true
 								}
+								customTag = true
 							}
-							customTag = true
 						}
 					}
 				}
@@ -818,12 +829,23 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment) {
 			}
 		}
 	}
+
+	if (in) && (!wasIn) {
+		EndStringBlock(r)
+		in = false
+	}
+}
+
+func GenerateGOXEx(r *Result, p *Parser, fn *Func, in bool) {
+	if fn != nil {
+		comments := fn.Comments
+		if GOXGlobalTheme != nil {
+			comments = append([]Comment{*GOXGlobalTheme}, fn.Comments...)
+		}
+		GenerateGOXBody(r, p, fn.Body, comments, in)
+	}
 }
 
 func GenerateGOX(r *Result, p *Parser, fn *Func) {
-	comments := fn.Comments
-	if GOXGlobalTheme != nil {
-		comments = append([]Comment{*GOXGlobalTheme}, fn.Comments...)
-	}
-	GenerateGOXBody(r, p, r.File.Source[fn.BodyBeginOffset+1:fn.BodyEndOffset-1], comments)
+	GenerateGOXEx(r, p, fn, false)
 }

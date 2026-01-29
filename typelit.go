@@ -38,6 +38,7 @@ type Func struct {
 	*/
 
 	Name string
+	Body string
 
 	BeginOffset     int
 	BodyBeginOffset int
