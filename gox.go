@@ -321,6 +321,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 				break
 			}
 
+			nattrblocks--
 			r.Printf("h.String(`%s`)", strings.TrimSpace(body[:end])).Line("}").Printf("h.%sEnd2()", stdstrings.Title(codeBlock)).Line("")
 
 			codeBlock = ""
@@ -422,6 +423,30 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 			body = strings.TrimSpace(body)
 
 			end := strings.FindChar(body, '>')
+			if end == -1 {
+				break
+			}
+
+			/* Handling '<tag attr={value > 0}/>', where 'greater-than sign' is treated as 'closing bracket'. */
+			for {
+				lbrace := strings.FindCharReverse(body[:end], '{')
+				if lbrace >= 0 {
+					rbrace := strings.FindCharReverse(body[lbrace+1:end], '}')
+					if rbrace == -1 {
+						rbrace = strings.FindChar(body[lbrace+1:], '}')
+						if rbrace >= 0 {
+							rbrace += lbrace + 1
+							end = strings.FindChar(body[rbrace+1:], '>')
+							if end == -1 {
+								break
+							}
+							end += rbrace + 1
+							continue
+						}
+					}
+				}
+				break
+			}
 			if end == -1 {
 				break
 			}
