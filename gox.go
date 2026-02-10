@@ -62,7 +62,7 @@ func (attrs Attributes) Get(key string) QuotedString {
 
 var GOXGlobalTheme *GOXComment
 
-var IntAttributes = []string{"minlength", "maxlength", "width", "height", "x", "y", "fontSize", "fontWeight", "strokeWidth", "cx", "cy", "r", "rx", "x1", "x2", "y1", "y2"}
+var IntAttributes = []string{"min", "max", "minlength", "maxlength", "width", "height", "x", "y", "fontSize", "fontWeight", "strokeWidth", "cx", "cy", "r", "rx", "x1", "x2", "y1", "y2"}
 
 var AppendAttributes = []string{"class", "style"}
 
@@ -747,8 +747,18 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 					}
 				}
 
+				etag := tag
+				if etag == "input" {
+					switch attrs["type"].Value {
+					case "checkbox":
+						etag = "checkbox"
+					case "submit":
+						etag = "button"
+					}
+				}
+
 				if (!withoutTheme) && (gc.Theme != nil) {
-					if tattrs, ok := gc.Theme[tag]; ok {
+					if tattrs, ok := gc.Theme[etag]; ok {
 						for k := range tattrs {
 							if !SliceContains(keys, k) {
 								keys = append(keys, k)
