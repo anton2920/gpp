@@ -270,18 +270,25 @@ func UnfixAttr(s string) string {
 }
 
 func IsGOXFunction(fn *Func) bool {
+	var foundGen, foundL bool
+
 	if fn != nil {
 		for _, comment := range fn.Comments {
 			if c, ok := comment.(GenerateComment); ok {
 				for _, gen := range c.Generators {
 					if _, ok := gen.(GeneratorGOX); ok {
-						return true
+						foundGen = true
 					}
+				}
+			} else if c, ok := comment.(GOXComment); ok {
+				if c.DoNotInline {
+					foundL = true
 				}
 			}
 		}
 	}
-	return false
+
+	return (foundGen) && (!foundL)
 }
 
 func BeginStringBlock(r *Result) *Result {
