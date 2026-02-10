@@ -303,9 +303,9 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 	const withoutThemeTag = "notheme"
 	const cutset = "\t\n"
 
+	var nattrblocks, ncodeblocks int
 	var withoutTheme bool
 	var codeBlock string
-	var nblocks int
 
 	gc := MergeGOXComments(comments)
 	wasIn := in
@@ -351,7 +351,11 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 				text := strings.TrimSpace(otext)
 
 				if StartsWithOneOf(text, stmts) {
-					end := strings.FindChar(text, '{')
+					newline := strings.FindChar(text, '\n')
+					if newline == -1 {
+						newline = len(text)
+					}
+					end := strings.FindCharReverse(text[:newline], '{')
 					if end >= 0 {
 						tabs := r.Tabs
 						if strings.StartsWith(text, "else") {
@@ -360,7 +364,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 						}
 						r.Line(text[:end+1])
 						r.Tabs = tabs + 1
-						nblocks++
+						ncodeblocks++
 
 						otext = text[end+1:]
 						continue
@@ -375,8 +379,8 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 					}
 				}
 
-				begin := strings.FindSubstring(otext, "{")
-				end := strings.FindSubstring(otext, "}")
+				begin := strings.FindChar(otext, '{')
+				end := strings.FindChar(otext, '}')
 				if end == -1 {
 					r.Printf("h.LString(`%s`)", otext)
 					break
@@ -386,11 +390,11 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 					}
 					text = otext[end:]
 
-					if nblocks == 0 {
+					if ncodeblocks == 0 {
 						r.Line("h.LString(`}`)")
 					} else {
 						r.RemoveLastNewline().Line("}")
-						nblocks--
+						ncodeblocks--
 					}
 					otext = text[1:]
 					continue
@@ -472,7 +476,10 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 				if gc.DoNotOptimize {
 					switch {
 					case (SliceContains(noAttributesBlock, tag)) || (SliceContains(attributesBlock, tag)) || (SliceContains([]string{"svg"}, tag)):
-						r.RemoveLastNewline().Line("}")
+						if nattrblocks > 0 {
+							nattrblocks--
+							r.RemoveLastNewline().Line("}")
+						}
 						fallthrough
 					case (SliceContains(noAttributesNoBlock, tag)) || (SliceContains(attributesNoBlock, tag)) || (SliceContains([]string{"text"}, tag)):
 						r.RemoveLastNewline().Printf("h.%sEnd2()", stdstrings.Title(tag)).Line("")
@@ -485,7 +492,10 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 								Warnf("unhandled %q", otag)
 							} else {
 								if strings.EndsWith(otag, "s") {
-									r.RemoveLastNewline().Line("}")
+									if nattrblocks > 0 {
+										nattrblocks--
+										r.RemoveLastNewline().Line("}")
+									}
 								}
 
 								name := fmt.Sprintf("Display%sEnd", otag)
@@ -833,6 +843,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 				r.Tabs = tabs
 				if createBlock {
 					r.Line("{")
+					nattrblocks++
 				}
 			}
 		}
@@ -841,6 +852,10 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 	if (in) && (!wasIn) {
 		EndStringBlock(r)
 		in = false
+	}
+
+	for i := 0; i < nattrblocks; i++ {
+		r.RemoveLastNewline().Line("}")
 	}
 }
 
