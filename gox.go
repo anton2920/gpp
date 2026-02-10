@@ -201,7 +201,7 @@ func SliceContains(xs []string, s string) bool {
 	return false
 }
 
-func StartsWithOneOf(xs []string, s string) bool {
+func StartsWithOneOf(s string, xs []string) bool {
 	for _, x := range xs {
 		if strings.StartsWith(s, x) {
 			return true
@@ -301,6 +301,7 @@ func EndStringBlock(r *Result) *Result {
 
 func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in bool) {
 	const withoutThemeTag = "notheme"
+	const cutset = "\t\n"
 
 	var withoutTheme bool
 	var codeBlock string
@@ -310,7 +311,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 	wasIn := in
 
 	for len(body) > 0 {
-		body = strings.TrimSpace(body)
+		body = stdstrings.Trim(body, cutset)
 
 		if len(codeBlock) > 0 {
 			needle := "</" + codeBlock + ">"
@@ -329,8 +330,6 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 
 		begin := FindTagBegin(body)
 		if (begin == -1) || (begin > 0) {
-			const cutset = "\t\n"
-
 			stmts := []string{"if", "else", "for", "switch"}
 			cases := []string{"case", "default"}
 
@@ -351,7 +350,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 			for len(otext) > 0 {
 				text := strings.TrimSpace(otext)
 
-				if StartsWithOneOf(stmts, text) {
+				if StartsWithOneOf(text, stmts) {
 					end := strings.FindChar(text, '{')
 					if end >= 0 {
 						tabs := r.Tabs
@@ -366,7 +365,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 						otext = text[end+1:]
 						continue
 					}
-				} else if StartsWithOneOf(cases, text) {
+				} else if StartsWithOneOf(text, cases) {
 					end := strings.FindChar(text, ':')
 					if end >= 0 {
 						r.Tabs--
@@ -416,6 +415,8 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 				}
 			}
 		} else {
+			body = strings.TrimSpace(body)
+
 			end := strings.FindChar(body, '>')
 			if end == -1 {
 				break
@@ -749,16 +750,16 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 						case "rect":
 							r.Backspace(len(`0, 0, 0, 0, 0)`)).Printf(`%s, %s, %s, %s, %s)`, attrs.Get("x"), attrs.Get("y"), attrs.Get("width"), attrs.Get("height"), attrs.Get("rx")).Backspace()
 						case "input":
-							switch attrs["type"].Value {
+							typ := attrs.Get("type")
+							switch typ.Value {
 							case "":
 								/* Do nothing. */
 							default:
-								r.Backspace(len(`"")`)).Printf(`%s)`, attrs.Get("type")).Backspace()
+								r.Backspace(len(`"")`)).Printf(`%s)`, typ).Backspace()
 							case "checkbox":
 								r.Backspace(len(`h.Input2("")`)).Line("h.Checkbox2()").Backspace()
 							case "submit":
 								r.Backspace(len(`h.Input2("")`)).Printf(`h.Button2(%s)`, attrs.Get("value")).Backspace()
-								delete(attrs, "value")
 							}
 						}
 					}
