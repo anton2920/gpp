@@ -471,7 +471,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 					default:
 						switch tag {
 						case "html":
-							r.Line("").Line("h.End2()")
+							r.Line("").RemoveLastNewline().Line("h.End2()")
 						default:
 							if (otag == stdstrings.ToUpper(otag)) || (otag != stdstrings.Title(otag)) {
 								Warnf("unhandled %q", otag)
@@ -642,7 +642,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 									EndStringBlock(r)
 									in = false
 								}
-								r.Printf("%s(h)", name)
+								r.RemoveEmptyStringBlock().Printf("%s(h)", name)
 								if strings.EndsWith(otag, "s") {
 									createBlock = true
 								}
