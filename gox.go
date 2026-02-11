@@ -475,7 +475,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 					if len(lines) == 1 {
 						r.Printf("/* %s */", comment)
 					} else {
-						r.RemoveLastNewline().Line("").Printf("/*").Backspace()
+						r.RemoveLastNewline().Line("").Printf("/*")
 						r.Tabs++
 						for i := 0; i < len(lines); i++ {
 							r.Line(strings.TrimSpace(lines[i]))
