@@ -410,8 +410,12 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 					continue
 				} else {
 					if strings.StartsWith(otext[begin:], "{{") {
-						for (end+1 < len(otext)) && (otext[end+1] == '}') {
-							end += 1
+						end = strings.FindSubstring(otext[begin+1:], "}}")
+						if end >= 0 {
+							end += begin+1
+							for (end+1 < len(otext)) && (otext[end+1] == '}') {
+								end += 1
+							}
 						}
 					}
 					value := otext[begin : end+1]
