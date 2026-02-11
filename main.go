@@ -58,6 +58,10 @@ func Fatalf(format string, args ...interface{}) {
 	os.Exit(1)
 }
 
+func ShouldAdd(path string) bool {
+	return ((strings.EndsWith(path, ".go")) || strings.EndsWith(path, ".gox")) && (strings.FindSubstring(path, GeneratedSuffix) == -1) && (strings.FindSubstring(path, "_gox") == -1)
+}
+
 func PopulateFileSet(fs *token.FileSet, paths []string) error {
 	for i := 0; i < len(paths); i++ {
 		path := paths[i]
@@ -68,7 +72,9 @@ func PopulateFileSet(fs *token.FileSet, paths []string) error {
 		}
 
 		if !file.IsDir() {
-			fs.AddFile(path, fs.Base(), int(file.Size()))
+			if ShouldAdd(path) {
+				fs.AddFile(path, fs.Base(), int(file.Size()))
+			}
 		} else {
 			dir, err := os.Open(path)
 			if err != nil {
@@ -84,7 +90,7 @@ func PopulateFileSet(fs *token.FileSet, paths []string) error {
 				file := files[j]
 				name := file.Name()
 
-				if ((strings.EndsWith(name, ".go")) || strings.EndsWith(name, ".gox")) && (strings.FindSubstring(name, GeneratedSuffix) == -1) && (strings.FindSubstring(name, "_gox") == -1) {
+				if ShouldAdd(name) {
 					fs.AddFile(filepath.Join(path, name), fs.Base(), int(file.Size()))
 				}
 			}

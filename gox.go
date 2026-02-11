@@ -74,9 +74,17 @@ func (qv QuotedString) String() string {
 		}
 	}
 	if (qv.Quoted) || (!qv.Present) {
-		return `"` + qv.Value + `"`
+		quote := "\""
+		if strings.FindChar(qv.Value, '\n') >= 0 {
+			quote = "`"
+		}
+		return quote + qv.Value + quote
 	}
 	return qv.Value
+}
+
+func CustomTag(tag string) bool {
+	return tag == stdstrings.Title(tag)
 }
 
 func MergeGOXAttributes(a1 Attributes, a2 Attributes) Attributes {
@@ -386,8 +394,9 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 					r.Printf("h.LString(`%s`)", otext)
 					break
 				} else if (end >= 0) && ((begin == -1) || (end < begin)) {
-					if len(strings.TrimSpace(otext[:end])) > 0 {
-						r.Printf("h.LString(`%s`)", stdstrings.Trim(otext[:end], cutset))
+					trimmed := stdstrings.Trim(otext[:end], cutset)
+					if len(trimmed) > 0 {
+						r.Printf("h.LString(`%s`)", trimmed)
 					}
 					text = otext[end:]
 
@@ -407,8 +416,9 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 					}
 					value := otext[begin : end+1]
 
-					if len(strings.TrimSpace(otext[:begin])) > 0 {
-						r.Printf("h.LString(`%s`)", stdstrings.Trim(otext[:begin], cutset))
+					trimmed := stdstrings.Trim(otext[:begin], cutset)
+					if len(trimmed) > 0 {
+						r.Printf("h.LString(`%s`)", trimmed)
 					}
 					if value, ok := StripIfFound(value, "{{", "}}"); ok {
 						r.RemoveLastNewline().Line(value)
@@ -513,7 +523,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 						case "html":
 							r.Line("").RemoveLastNewline().Line("h.End2()")
 						default:
-							if (otag == stdstrings.ToUpper(otag)) || (otag != stdstrings.Title(otag)) {
+							if !CustomTag(otag) {
 								Warnf("unhandled %q", otag)
 							} else {
 								if strings.EndsWith(otag, "s") {
@@ -542,7 +552,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 						}
 						r.Line("").Line("h.End2()")
 					default:
-						if (otag == stdstrings.ToUpper(otag)) || (otag != stdstrings.Title(otag)) {
+						if !CustomTag(otag) {
 							r.WithoutTabs().Printf("</%s>", tag).Backspace()
 						} else {
 							name := fmt.Sprintf("Display%sEnd", otag)
@@ -566,7 +576,13 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 			} else {
 				var createBlock, extraNewline, customTag, selfClosed bool
 
-				otag, rest, ok := strings.Cut(s, " ")
+				sep := " "
+				nl := strings.FindChar(s, '\n')
+				if nl >= 0 {
+					sep = "\n"
+				}
+
+				otag, rest, ok := strings.Cut(s, sep)
 				otag = strings.TrimSpace(otag)
 				tag := stdstrings.ToLower(otag)
 
@@ -606,6 +622,8 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 							fallthrough
 						case "link", "path":
 							r.Printf(`h.%s2("")`, stdstrings.Title(tag))
+						case "error":
+							r.Printf(`h.%s2(nil)`, stdstrings.Title(tag))
 						case "svg":
 							createBlock = true
 							fallthrough
@@ -618,7 +636,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 						case "rect":
 							r.Printf(`h.%s2(0, 0, 0, 0, 0)`, stdstrings.Title(tag))
 						default:
-							if (otag == stdstrings.ToUpper(otag)) || (otag != stdstrings.Title(otag)) {
+							if !CustomTag(otag) {
 								Warnf("unhandled %q", otag)
 								continue
 							} else {
@@ -663,8 +681,14 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 								r.WithoutTabs().Printf(`<script src=%s></script>`, v.Get("src")).Backspace()
 							}
 						}
+					case "error":
+						if in {
+							EndStringBlock(r)
+							in = false
+						}
+						r.RemoveEmptyStringBlock().Printf("h.%s2(nil)", stdstrings.Title(tag))
 					default:
-						if (otag == stdstrings.ToUpper(otag)) || (otag != stdstrings.Title(otag)) {
+						if !CustomTag(otag) {
 							r.WithoutTabs().Printf("<%s>", tag).Backspace()
 						} else {
 							var name string
@@ -705,12 +729,9 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 					var done bool
 					for !done {
 						sep := " "
-						/* TODO(anton2920): handle '\n' as attribute separator. */
-						if false {
-							nl := strings.FindChar(s, '\n')
-							if (nl >= 0) && (nl < end) {
-								sep = "\n"
-							}
+						nl := strings.FindChar(s, '\n')
+						if nl >= 0 {
+							sep = "\n"
 						}
 
 						attr, rest, ok := ProperCut(s, sep, "\"", "\"", "{{", "}}", "{", "}")
@@ -807,6 +828,10 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 								r.Backspace(len(`h.Input2("")`)).Printf(`h.Button2(%s)`, attrs.Get("value")).Backspace()
 							}
 						}
+					}
+					switch tag {
+					case "error":
+						r.Backspace(len(`nil)`)+bools.ToInt(!gc.DoNotOptimize)).Printf(`%s)`, attrs.Get("err")).Backspace()
 					}
 
 					if customTag {
