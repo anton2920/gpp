@@ -412,7 +412,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 					if strings.StartsWith(otext[begin:], "{{") {
 						end = strings.FindSubstring(otext[begin+1:], "}}")
 						if end >= 0 {
-							end += begin+1
+							end += begin + 1
 							for (end+1 < len(otext)) && (otext[end+1] == '}') {
 								end += 1
 							}
@@ -499,7 +499,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 			codeBlocks := []string{"style", "script"}
 
 			noAttributesBlock := []string{"head", "body", "div", "select", "ol", "ul"}
-			noAttributesNoBlock := []string{"h1", "h2", "h3", "h4", "h5", "h6", "p", "b", "i", "span", "option", "textarea", "title", "li", "label"}
+			noAttributesNoBlock := []string{"h1", "h2", "h3", "h4", "h5", "h6", "p", "b", "i", "span", "option", "textarea", "title", "li", "label", "button"}
 			attributesBlock := []string{"form"}
 			attributesNoBlock := []string{"a"}
 
@@ -738,7 +738,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 							sep = "\n"
 						}
 
-						attr, rest, ok := ProperCut(s, sep, "\"", "\"", "{{", "}}", "{", "}")
+						attr, rest, ok := ProperCut(s, sep, "{{", "}}", "{", "}", "\"", "\"")
 						if !ok {
 							done = true
 						}
