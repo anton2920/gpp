@@ -1,0 +1,68 @@
+package main
+
+import "github.com/anton2920/gofa/net/html"
+
+type ModelUser struct {
+	FirstName      string
+	Email          string
+	FavoriteColors []string
+	RawContent     string
+	EscapedContent string
+}
+
+func SimpleOld(h *html.HTML, u *ModelUser) {
+	h.Begin()
+
+	h.BodyBegin()
+	{
+		h.H1(u.FirstName)
+
+		h.PBegin()
+		h.String(`Here's a list of your favorite colors:`)
+		h.PEnd()
+
+		h.ULBegin()
+		{
+			for _, colorName := range u.FavoriteColors {
+				h.LIBegin()
+				h.HString(colorName)
+				h.LIEnd()
+			}
+		}
+		h.ULEnd()
+	}
+	h.BodyEnd()
+
+	h.End()
+}
+
+//gpp:generate: gox
+//gpp:gox: -N, -l
+func SimpleNl(h *html.HTML, u *ModelUser) {
+	<!DOCTYPE html>
+		<body>
+			<h1>{ u.FirstName }</h1>
+			<p>Here's a list of your favorite colors:</p>
+			<ul>
+				for _, colorName := range u.FavoriteColors {
+					<li>{ colorName }</li>
+				}
+			</ul>
+		</body>
+	</html>
+}
+
+//gpp:generate: gox
+func Simple(h *html.HTML, u *ModelUser) {
+	<!DOCTYPE html>
+		<body>
+			<h1>{ u.FirstName }</h1>
+			<p>Here's a list of your favorite colors:</p>
+			<ul>
+				for _, colorName := range u.FavoriteColors {
+					<li>{ colorName }</li>
+				}
+			</ul>
+		</body>
+	</html>
+}

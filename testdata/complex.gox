@@ -1,0 +1,167 @@
+package main
+
+import "github.com/anton2920/gofa/net/html"
+
+type ModelNavigation struct {
+	Item string
+	Link string
+}
+
+//gpp:generate: gox
+func DisplayHeader(h *html.HTML, title string) {
+	<title>{ title }'s Home Page</title>
+	<div class="header">Page Header</div>
+}
+
+//gpp:generate: gox
+func DisplayNavigation(h *html.HTML, nav []*ModelNavigation) {
+	<ul class="navigation">
+		for _, item := range nav {
+			<li><a href={item.Link}>{ item.Item }</a></li>
+		}
+	</ul>
+}
+
+//gpp:generate: gox
+func DisplayFooter(h *html.HTML) {
+	<div class="footer">copyright 2016</div>
+}
+
+//gpp:generate: gox
+func Complex(h *html.HTML, u *ModelUser, nav []*ModelNavigation, title string) {
+	<!DOCTYPE html>
+		<body>
+			<header>
+				<Header title={title}/>
+			</header>
+
+			<nav>
+				<Navigation nav={nav}/>
+			</nav>
+
+			<section>
+				<div class="content">
+					<div class="welcome">
+						<h4>Hello { u.FirstName }</h4>
+						<div class="raw">
+							{{ h.String(u.RawContent) }}
+						</div>
+						<div class="enc">{ u.EscapedContent }</div>
+					</div>
+
+					for i := 1; i <= 5; i++ {
+						if i == 1 {
+							<p>{ u.FirstName } has {{h.Int(i)}} message</p>
+						} else {
+							<p>{ u.FirstName } has {{h.Int(i)}} messages</p>
+						}
+					}
+				</div>
+			</section>
+
+			<footer>
+				<Footer/>
+			</footer>
+		</body>
+	</html>
+}
+
+func DisplayHeaderOld(h *html.HTML, title string) {
+	h.TitleBegin()
+	h.LString(title)
+	h.String("' s ")
+	h.LString("Home Page")
+	h.TitleEnd()
+
+	h.DivBegin(html.Class("header"))
+	h.LString("Page Header")
+	h.DivEnd()
+}
+
+func DisplayNavigationOld(h *html.HTML, nav []*ModelNavigation) {
+	h.ULBegin(html.Class("navigation"))
+	for _, item := range nav {
+		h.LIBegin()
+		h.A(item.Link, item.Item)
+		h.LIEnd()
+	}
+	h.ULEnd()
+}
+
+func DisplayFooterOld(h *html.HTML) {
+	h.DivBegin(html.Class("footer"))
+	h.LString("copyright")
+	h.SP()
+	h.Int(2016)
+	h.DivEnd()
+}
+
+func ComplexOld(h *html.HTML, u *ModelUser, nav []*ModelNavigation, title string) {
+	h.Begin()
+
+	h.BodyBegin()
+	{
+		h.TagBegin(`header`)
+		DisplayHeaderOld(h, title)
+		h.TagEnd(`header`)
+	}
+	h.BodyEnd()
+
+			h.TagBegin(`header`)
+			DisplayHeaderOld(h, title)
+			h.TagEnd(`header`)
+
+			h.TagBegin(`nav`)
+			DisplayNavigationOld(h, nav)
+			h.TagEnd(`nav`)
+
+			h.TagBegin(`section`)
+			{
+				h.DivBegin(html.Class("content"))
+				{
+					h.DivBegin(html.Class("welcome"))
+					{
+						h.H4(u.FirstName)
+
+						h.DivBegin(html.Class("raw"))
+						h.String(u.RawContent)
+						h.DivEnd()
+
+						h.DivBegin(html.Class("enc"))
+						h.LString(u.EscapedContent)
+						h.DivEnd()
+					}
+					h.DivEnd()
+
+					for i := 1; i <= 5; i++ {
+						if i == 1 {
+							h.PBegin()
+							h.HString(u.FirstName)
+							h.SP()
+							h.LString("has")
+							h.SP()
+							h.Int(i)
+							h.LString("message")
+							h.PEnd()
+						} else {
+							h.PBegin()
+							h.HString(u.FirstName)
+							h.SP()
+							h.LString("has")
+							h.SP()
+							h.Int(i)
+							h.LString("messages")
+							h.PEnd()
+						}
+					}
+				}
+				h.DivEnd()
+			}
+			h.TagEnd(`section`)
+
+			h.TagBegin(`footer`)
+			DisplayFooterOld(h)
+			h.TagEnd(`footer`)
+
+	h.End()
+}
