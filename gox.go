@@ -94,8 +94,10 @@ func MergeGOXAttributes(a1 Attributes, a2 Attributes) Attributes {
 	}
 	for k, v := range a2 {
 		rk, ok := res[k]
-		if (ok) && (SliceContains(AppendAttributes, k)) && (!SliceContains(stdstrings.Split(rk.Value, " "), v.Value)) {
-			res[k] = QuotedString{k, stdstrings.Join([]string{rk.Value, v.Value}, " "), true, true}
+		if (ok) && (SliceContains(AppendAttributes, k)) {
+			if !SliceContains(stdstrings.Split(rk.Value, " "), v.Value) {
+				res[k] = QuotedString{k, stdstrings.Join([]string{rk.Value, v.Value}, " "), true, true}
+			}
 		} else {
 			res[k] = v
 		}
@@ -307,38 +309,57 @@ func EndStringBlock(r *Result) *Result {
 	return r.WithoutTabs().Line("`)")
 }
 
-func InsertContents(r *Result, contents QuotedString, withoutLocalization bool, withoutEscaping bool) {
+func InsertContents(r *Result, contents QuotedString, doNotOptimize bool, in *bool, withoutLocalization bool, withoutEscaping bool) {
 	if (len(contents.Value) == 0) || ((len(contents.Value) > 1) && (len(strings.TrimSpace(contents.Value)) == 0)) {
 		return
 	}
 
-	if (!withoutEscaping) && (!withoutLocalization) {
+	if (!doNotOptimize) && (withoutEscaping) && (contents.Quoted) {
+		if !*in {
+			BeginStringBlock(r)
+			*in = true
+		}
+		r.WithoutTabs().Line(contents.Value).Backspace()
+		return
+	}
+	if *in {
+		EndStringBlock(r)
+		*in = false
+	}
+
+	if (withoutEscaping) || (contents.Value == " ") {
+		r.Printf("h.String(%s)", contents)
+	} else if withoutLocalization {
+		r.Printf("h.HString(%s)", contents)
+	} else {
 		if v, ok := StripIfFound(contents.Value, "", ": "); ok {
 			r.Printf(`h.LStringColon("%s")`, v)
+		} else if v, ok := StripIfFound(contents.Value, " ", " "); ok {
+			r.Printf(`h.String(" ").LString("%s").String(" ")`, v)
+		} else if v, ok := StripIfFound(contents.Value, " ", ""); ok {
+			r.Printf(`h.String(" ").LString("%s")`, v)
 		} else if v, ok := StripIfFound(contents.Value, "", " "); ok {
 			r.Printf(`h.LString("%s").String(" ")`, v)
 		} else {
 			r.Printf("h.LString(%s)", contents)
 		}
-	} else if (withoutLocalization) && (!withoutEscaping) {
-		r.Printf("h.HString(%s)", contents)
-	} else {
-		r.Printf("h.String(%s)", contents)
 	}
 }
 
-func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in bool) {
+func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in bool, withoutTheme bool, withoutLocalization bool, withoutEscaping bool) {
 	const withoutLocalizationTag = "nol10n"
 	const withoutEscapingTag = "noesc"
 	const withoutThemeTag = "notheme"
 	const cutset = "\t\n"
 
-	var withoutTheme, withoutLocalization, withoutEscaping bool
 	var nattrblocks, ncodeblocks int
 	var codeBlock string
 
 	gc := MergeGOXComments(comments)
 	wasIn := in
+	wasWithoutTheme := withoutTheme
+	wasWithoutLocalization := withoutLocalization
+	wasWithoutEscaping := withoutEscaping
 
 	for len(body) > 0 {
 		body = stdstrings.Trim(body, cutset)
@@ -373,11 +394,6 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 				body = body[begin:]
 			}
 
-			if in {
-				EndStringBlock(r)
-				in = false
-			}
-
 			for len(otext) > 0 {
 				text := strings.TrimSpace(otext)
 
@@ -388,6 +404,11 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 					}
 					end := strings.FindCharReverse(text[:newline], '{')
 					if end >= 0 {
+						if in {
+							EndStringBlock(r)
+							in = false
+						}
+
 						tabs := r.Tabs
 						if strings.StartsWith(text, "else") {
 							r.Backspace(1).Buffer.WriteRune(' ')
@@ -403,6 +424,11 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 				} else if StartsWithOneOf(text, cases) {
 					end := strings.FindChar(text, ':')
 					if end >= 0 {
+						if in {
+							EndStringBlock(r)
+							in = false
+						}
+
 						r.Tabs--
 						r.RemoveLastNewline().Line(strings.TrimSpace(text[:end+1]))
 						otext = text[end+1:]
@@ -413,19 +439,26 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 				begin := strings.FindChar(otext, '{')
 				end := strings.FindChar(otext, '}')
 				if end == -1 {
-					InsertContents(r, QuotedString{Value: otext, Quoted: true, Present: true}, withoutLocalization, withoutEscaping)
+					InsertContents(r, QuotedString{Value: otext, Quoted: true, Present: true}, gc.DoNotOptimize, &in, withoutLocalization, withoutEscaping)
 					break
 				} else if (end >= 0) && ((begin == -1) || (end < begin)) {
 					trimmed := stdstrings.Trim(otext[:end], cutset)
 					if len(trimmed) > 0 {
-						InsertContents(r, QuotedString{Value: trimmed, Quoted: true, Present: true}, withoutLocalization, withoutEscaping)
+						InsertContents(r, QuotedString{Value: trimmed, Quoted: true, Present: true}, gc.DoNotOptimize, &in, withoutLocalization, withoutEscaping)
 					}
 					text = otext[end:]
 
 					if ncodeblocks == 0 {
-						/* TODO(anton2920): and what about optimization case? */
-						r.Line("h.String(`}`)")
+						if in {
+							r.WithoutTabs().Line("}").Backspace()
+						} else {
+							r.Line("h.String(`}`)")
+						}
 					} else {
+						if in {
+							EndStringBlock(r)
+							in = false
+						}
 						r.RemoveLastNewline().Line("}")
 						ncodeblocks--
 					}
@@ -445,12 +478,16 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 
 					trimmed := stdstrings.Trim(otext[:begin], cutset)
 					if len(trimmed) > 0 {
-						InsertContents(r, QuotedString{Value: trimmed, Quoted: true, Present: false}, withoutLocalization, withoutEscaping)
+						InsertContents(r, QuotedString{Value: trimmed, Quoted: true, Present: false}, gc.DoNotOptimize, &in, withoutLocalization, withoutEscaping)
 					}
 					if value, ok := StripIfFound(value, "{{", "}}"); ok {
+						if in {
+							EndStringBlock(r)
+							in = false
+						}
 						r.RemoveLastNewline().Line(value)
 					} else if value, ok := StripIfFound(value, "{", "}"); ok {
-						InsertContents(r, QuotedString{Value: strings.TrimSpace(value), Quoted: false, Present: true}, withoutLocalization, withoutEscaping)
+						InsertContents(r, QuotedString{Value: strings.TrimSpace(value), Quoted: false, Present: true}, gc.DoNotOptimize, &in, withoutLocalization, withoutEscaping)
 					}
 
 					otext = otext[end+1:]
@@ -532,13 +569,13 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 
 				switch otag {
 				case withoutThemeTag:
-					withoutTheme = false
+					withoutTheme = wasWithoutTheme
 					continue
 				case withoutLocalizationTag:
-					withoutLocalization = false
+					withoutLocalization = wasWithoutLocalization
 					continue
 				case withoutEscapingTag:
-					withoutEscaping = false
+					withoutEscaping = wasWithoutEscaping
 					continue
 				}
 
@@ -592,7 +629,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 							name := fmt.Sprintf("Display%sEnd", otag)
 							fn := p.FindFunction(r.File.Imports, "main", name)
 							if (!gc.DoNotInline) && (IsGOXFunction(fn)) {
-								GenerateGOXEx(r.RemoveLastNewline(), p, fn, in)
+								GenerateGOXEx(r.RemoveLastNewline(), p, fn, in, withoutTheme, withoutLocalization, withoutEscaping)
 							} else {
 								if in {
 									EndStringBlock(r)
@@ -743,8 +780,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 
 							fn := p.FindFunction(r.File.Imports, "main", name)
 							if (!gc.DoNotInline) && (IsGOXFunction(fn)) && (!ok) {
-								//runtime.Breakpoint()
-								GenerateGOXEx(r, p, fn, in)
+								GenerateGOXEx(r, p, fn, in, withoutTheme, withoutLocalization, withoutEscaping)
 							} else {
 								if in {
 									EndStringBlock(r)
@@ -954,23 +990,23 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 		EndStringBlock(r)
 		in = false
 	}
-	r.RemoveEmptyStringBlock()
 
 	for i := 0; i < nattrblocks; i++ {
 		r.RemoveLastNewline().Line("}")
 	}
 }
 
-func GenerateGOXEx(r *Result, p *Parser, fn *Func, in bool) {
+func GenerateGOXEx(r *Result, p *Parser, fn *Func, in bool, withoutTheme bool, withoutLocalization bool, withoutEscaping bool) {
 	if fn != nil {
 		comments := fn.Comments
 		if GOXGlobalTheme != nil {
 			comments = append([]Comment{*GOXGlobalTheme}, fn.Comments...)
 		}
-		GenerateGOXBody(r, p, fn.Body, comments, in)
+		GenerateGOXBody(r, p, fn.Body, comments, in, withoutTheme, withoutLocalization, withoutEscaping)
 	}
 }
 
 func GenerateGOX(r *Result, p *Parser, fn *Func) {
-	GenerateGOXEx(r, p, fn, false)
+	GenerateGOXEx(r, p, fn, false, false, false, false)
+	r.RemoveEmptyStringBlock()
 }

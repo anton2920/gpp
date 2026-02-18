@@ -37,7 +37,7 @@ var user *User
 
 //gpp:generate: gox
 //gpp:gox: -C
-//gpp:gox: Theme={{Body: {Style: "max-width: 1100px; margin 0px auto;"}}}
+//gpp:gox: Theme={{Body: {Style: "max-width: 1100px; margin 0px auto;"}, Select: {Class: "form-select form-select-sm"}}}
 func TestPage(h *html.HTML, i int) {
 	<!DOCTYPE html>
 
@@ -72,6 +72,9 @@ func TestPage(h *html.HTML, i int) {
 		<noesc><p>Counter: <span>{{h.Int(i)}}</span></p></noesc>
 
 		<input type="text" minlength="1" maxlength="45" name="FirstName" value={user.FirstName} placeholder="First name" required>
+
+		<select class="form-select" name="whatever">
+		</select>
 
 		<!-- Test comment. -->
 		<ul>

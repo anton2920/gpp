@@ -9,26 +9,31 @@ type ModelNavigation struct {
 
 //gpp:generate: gox
 func DisplayHeader(h *html.HTML, title string) {
-	<title>{ title }'s Home Page</title>
-	<div class="header">Page Header</div>
+	<nol10n>
+	<title>{ title }<noesc>'s Home Page</noesc></title>
+	<div class="header"><noesc>Page Header</noesc></div>
+	</nol10n>
 }
 
 //gpp:generate: gox
 func DisplayNavigation(h *html.HTML, nav []*ModelNavigation) {
+	<nol10n>
 	<ul class="navigation">
 		for _, item := range nav {
 			<li><a href={item.Link}>{ item.Item }</a></li>
 		}
 	</ul>
+	</nol10n>
 }
 
 //gpp:generate: gox
 func DisplayFooter(h *html.HTML) {
-	<div class="footer">copyright 2016</div>
+	<noesc><div class="footer">copyright 2016</div></noesc>
 }
 
 //gpp:generate: gox
 func Complex(h *html.HTML, u *ModelUser, nav []*ModelNavigation, title string) {
+	<nol10n>
 	<!DOCTYPE html>
 		<body>
 			<header>
@@ -42,18 +47,20 @@ func Complex(h *html.HTML, u *ModelUser, nav []*ModelNavigation, title string) {
 			<section>
 				<div class="content">
 					<div class="welcome">
-						<h4>Hello { u.FirstName }</h4>
+						<h4><noesc>Hello </noesc>{ u.FirstName }</h4>
 						<div class="raw">
-							{{ h.String(u.RawContent) }}
+						<noesc>
+							{ u.RawContent }
+						</noesc>
 						</div>
 						<div class="enc">{ u.EscapedContent }</div>
 					</div>
 
 					for i := 1; i <= 5; i++ {
 						if i == 1 {
-							<p>{ u.FirstName } has {{h.Int(i)}} message</p>
+							<p>{ u.FirstName }<noesc> has {{h.Int(i)}} message</noesc></p>
 						} else {
-							<p>{ u.FirstName } has {{h.Int(i)}} messages</p>
+							<p>{ u.FirstName }<noesc> has {{h.Int(i)}} messages</noesc></p>
 						}
 					}
 				</div>
@@ -64,17 +71,18 @@ func Complex(h *html.HTML, u *ModelUser, nav []*ModelNavigation, title string) {
 			</footer>
 		</body>
 	</html>
+	<nol10n>
 }
 
 func DisplayHeaderOld(h *html.HTML, title string) {
 	h.TitleBegin()
-	h.LString(title)
+	h.HString(title)
 	h.String("' s ")
-	h.LString("Home Page")
+	h.HString("Home Page")
 	h.TitleEnd()
 
 	h.DivBegin(html.Class("header"))
-	h.LString("Page Header")
+	h.HString("Page Header")
 	h.DivEnd()
 }
 
@@ -90,7 +98,7 @@ func DisplayNavigationOld(h *html.HTML, nav []*ModelNavigation) {
 
 func DisplayFooterOld(h *html.HTML) {
 	h.DivBegin(html.Class("footer"))
-	h.LString("copyright")
+	h.HString("copyright")
 	h.SP()
 	h.Int(2016)
 	h.DivEnd()
@@ -104,64 +112,58 @@ func ComplexOld(h *html.HTML, u *ModelUser, nav []*ModelNavigation, title string
 		h.TagBegin(`header`)
 		DisplayHeaderOld(h, title)
 		h.TagEnd(`header`)
-	}
-	h.BodyEnd()
 
-			h.TagBegin(`header`)
-			DisplayHeaderOld(h, title)
-			h.TagEnd(`header`)
+		h.TagBegin(`nav`)
+		DisplayNavigationOld(h, nav)
+		h.TagEnd(`nav`)
 
-			h.TagBegin(`nav`)
-			DisplayNavigationOld(h, nav)
-			h.TagEnd(`nav`)
-
-			h.TagBegin(`section`)
+		h.TagBegin(`section`)
+		h.DivBegin(html.Class("content"))
+		{
+			h.DivBegin(html.Class("welcome"))
 			{
-				h.DivBegin(html.Class("content"))
-				{
-					h.DivBegin(html.Class("welcome"))
-					{
-						h.H4(u.FirstName)
+				h.H4(u.FirstName)
 
-						h.DivBegin(html.Class("raw"))
-						h.String(u.RawContent)
-						h.DivEnd()
+				h.DivBegin(html.Class("raw"))
+				h.String(u.RawContent)
+				h.DivEnd()
 
-						h.DivBegin(html.Class("enc"))
-						h.LString(u.EscapedContent)
-						h.DivEnd()
-					}
-					h.DivEnd()
-
-					for i := 1; i <= 5; i++ {
-						if i == 1 {
-							h.PBegin()
-							h.HString(u.FirstName)
-							h.SP()
-							h.LString("has")
-							h.SP()
-							h.Int(i)
-							h.LString("message")
-							h.PEnd()
-						} else {
-							h.PBegin()
-							h.HString(u.FirstName)
-							h.SP()
-							h.LString("has")
-							h.SP()
-							h.Int(i)
-							h.LString("messages")
-							h.PEnd()
-						}
-					}
-				}
+				h.DivBegin(html.Class("enc"))
+				h.HString(u.EscapedContent)
 				h.DivEnd()
 			}
-			h.TagEnd(`section`)
+			h.DivEnd()
 
-			h.TagBegin(`footer`)
-			DisplayFooterOld(h)
-			h.TagEnd(`footer`)
+			for i := 1; i <= 5; i++ {
+				if i == 1 {
+					h.PBegin()
+					h.HString(u.FirstName)
+					h.SP()
+					h.HString("has")
+					h.SP()
+					h.Int(i)
+					h.HString("message")
+					h.PEnd()
+				} else {
+					h.PBegin()
+					h.HString(u.FirstName)
+					h.SP()
+					h.HString("has")
+					h.SP()
+					h.Int(i)
+					h.HString("messages")
+					h.PEnd()
+				}
+			}
+		}
+		h.DivEnd()
+		h.TagEnd(`section`)
+
+		h.TagBegin(`footer`)
+		DisplayFooterOld(h)
+		h.TagEnd(`footer`)
+	}
+	h.BodyEnd()
 
 	h.End()
 }
