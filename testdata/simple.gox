@@ -39,6 +39,7 @@ func SimpleOld(h *html.HTML, u *ModelUser) {
 //gpp:generate: gox
 //gpp:gox: -N, -l
 func SimpleNl(h *html.HTML, u *ModelUser) {
+	<nol10n>
 	<!DOCTYPE html>
 		<body>
 			<h1>{ u.FirstName }</h1>
@@ -50,10 +51,12 @@ func SimpleNl(h *html.HTML, u *ModelUser) {
 			</ul>
 		</body>
 	</html>
+	</nol10n>
 }
 
 //gpp:generate: gox
 func Simple(h *html.HTML, u *ModelUser) {
+	<nol10n>
 	<!DOCTYPE html>
 		<body>
 			<h1>{ u.FirstName }</h1>
@@ -65,4 +68,5 @@ func Simple(h *html.HTML, u *ModelUser) {
 			</ul>
 		</body>
 	</html>
+	</nol10n>
 }

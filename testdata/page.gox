@@ -69,6 +69,8 @@ func TestPage(h *html.HTML, i int) {
 	    		<Crumb><a href={h.PathID("/user/", user.ID)}></a></Crumb>
 		</Crumbs>
 
+		<noesc><p>Counter: <span>{{h.Int(i)}}</span></p></noesc>
+
 		<input type="text" minlength="1" maxlength="45" name="FirstName" value={user.FirstName} placeholder="First name" required>
 
 		<!-- Test comment. -->
