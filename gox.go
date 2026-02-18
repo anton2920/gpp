@@ -401,7 +401,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 					text = otext[end:]
 
 					if ncodeblocks == 0 {
-						r.Line("h.LString(`}`)")
+						r.Line("h.String(`}`)")
 					} else {
 						r.RemoveLastNewline().Line("}")
 						ncodeblocks--

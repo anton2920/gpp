@@ -93,8 +93,6 @@ func ProperCut(s string, sep string, ss ...string) (string, string, bool) {
 				rval = rval[seppos+1:]
 				ok = true
 			}
-
-			break
 		}
 	}
 
