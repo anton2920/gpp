@@ -50,10 +50,10 @@ func (g GeneratorEncodingJSONDeserialize) Struct(r *Result, ctx GenerationContex
 	r.Line("d.ObjectEnd()")
 }
 
-func (g GeneratorEncodingJSONDeserialize) StructField(r *Result, ctx GenerationContext, field *StructField, lit TypeLit) {
+func (g GeneratorEncodingJSONDeserialize) StructField(r *Result, ctx GenerationContext, field *StructField, lit ForeignTypeLit) {
 	r.Printf("case \"%s\":", ctx.FieldName)
 	{
-		GenerateStructField(g, r, ctx.WithCast(LiteralName(lit)), field, lit)
+		GenerateStructField(g, r, ctx.WithCast(LiteralName(lit.TypeLit)), field, lit.TypeLit)
 	}
 	r.Tabs--
 }

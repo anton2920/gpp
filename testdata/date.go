@@ -5,8 +5,8 @@ type Date int64
 //gpp:generate: fill(values), verify
 //gpp:verify: InsertBefore={{now := Date(GetServerTime())}}, SOA
 type DateRanges struct {
-	StartDates []Date //gpp:fill: Func=ParseDate; verify: Max={{now}}
-	EndDates   []Date /*gpp:fill: Func=ParseDate; verify: Min={{.StartDate}}, Max={{now}}, Optional*/
+	StartDates []Date //gpp:fill: Func=ParseDate; verify: Max={now}
+	EndDates   []Date /*gpp:fill: Func=ParseDate; verify: Min={.StartDate}, Max={now}, Optional*/
 }
 
 /*

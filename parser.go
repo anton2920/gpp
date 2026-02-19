@@ -11,7 +11,7 @@ import (
 type Parser struct {
 	Lexer
 
-	Packages           map[string][]File
+	Packages           map[string]Package
 	ReferencedPackages map[string]struct{}
 
 	Error error
@@ -21,7 +21,7 @@ func NewParser(fs *token.FileSet) Parser {
 	var p Parser
 
 	p.FileSet = fs
-	p.Packages = make(map[string][]File)
+	p.Packages = make(map[string]Package)
 	p.ReferencedPackages = make(map[string]struct{})
 
 	return p
@@ -96,30 +96,30 @@ func (p *Parser) StringLit(s *string) bool {
 	return false
 }
 
-func (p *Parser) FindTypeLit(is Imports, pkg string, typeName string) TypeLit {
-	pkgPath := is.PackageName(pkg)
+func (p *Parser) FindTypeLit(is Imports, typePkg string, typeName string) ForeignTypeLit {
+	pkgName := is.PackageName(typePkg)
 
-	parsedFiles := p.Packages[pkgPath]
-	for _, parsedFile := range parsedFiles {
-		for _, spec := range parsedFile.Specs {
+	pkg := p.Packages[pkgName]
+	for _, file := range pkg.Files {
+		for _, spec := range file.Specs {
 			if typeName == spec.Name {
 				if spec.Type.Literal == nil {
-					p.FindTypeLit(is, strings.Or(spec.Type.Package, pkgPath), spec.Type.Name)
+					p.FindTypeLit(is, strings.Or(spec.Type.Package, pkgName), spec.Type.Name)
 				}
-				return spec.Type.Literal
+				return ForeignTypeLit{ImportPath: pkg.ImportPath, TypeLit: spec.Type.Literal}
 			}
 		}
 	}
 
-	return nil
+	return ForeignTypeLit{}
 }
 
-func (p *Parser) FindFunction(is Imports, pkg string, funcName string) *Func {
-	pkgPath := is.PackageName(pkg)
+func (p *Parser) FindFunction(is Imports, funcPkg string, funcName string) *Func {
+	pkgName := is.PackageName(funcPkg)
 
-	for _, parsedFile := range p.Packages[pkgPath] {
-		for i := 0; i < len(parsedFile.Funcs); i++ {
-			fn := &parsedFile.Funcs[i]
+	for _, file := range p.Packages[pkgName].Files {
+		for i := 0; i < len(file.Funcs); i++ {
+			fn := &file.Funcs[i]
 			if fn.Name == funcName {
 				return fn
 			}

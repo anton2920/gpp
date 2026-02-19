@@ -28,14 +28,6 @@ type UnionComment struct {
 	Types []string
 }
 
-const (
-	LBraces = "{{"
-	RBraces = "}}"
-
-	LBracks = "[["
-	RBracks = "]]"
-)
-
 func (NOPComment) Comment()      {}
 func (ImportComment) Comment()   {}
 func (InlineComment) Comment()   {}
@@ -126,7 +118,7 @@ func (p *Parser) Comments(comments *[]Comment) bool {
 
 		var done bool
 		for !done {
-			s, rest, ok := ProperCut(lit, ";", LBraces, RBraces)
+			s, rest, ok := ProperCut(lit, ";", "{{", "}}")
 			if !ok {
 				done = true
 			}

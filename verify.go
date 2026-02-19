@@ -68,7 +68,7 @@ func MergeVerifyComments(comments []Comment) VerifyComment {
 func ParseVerifyComment(comment string, vc *VerifyComment) bool {
 	var done bool
 	for !done {
-		s, rest, ok := ProperCut(comment, ",", LBracks, RBracks, LBraces, RBraces)
+		s, rest, ok := ProperCut(comment, ",", "[", "]", "{{", "}}", "{", "}")
 		if !ok {
 			done = true
 		}
@@ -95,7 +95,7 @@ func ParseVerifyComment(comment string, vc *VerifyComment) bool {
 			switch lval {
 			case "each":
 				var each VerifyComment
-				rval, _ = StripIfFound(rval, LBracks, RBracks)
+				rval, _ = StripIfFound(rval, "[", "]")
 				if ParseVerifyComment(rval, &each) {
 					vc.Each = &each
 				}
@@ -130,7 +130,7 @@ func ParseVerifyComment(comment string, vc *VerifyComment) bool {
 func VerifyWithFuncs(r *Result, ctx GenerationContext, funcs []string) {
 	for _, fn := range funcs {
 		var ok bool
-		if fn, ok = StripIfFound(fn, LBraces, RBraces); !ok {
+		if fn, ok = StripIfFound(fn, "{{", "}}"); !ok {
 			fn = fmt.Sprintf("%s(l, %s)", fn, ctx.Deref(ctx.VarName))
 		} else {
 			fn = stdstrings.Replace(fn, "?", ctx.Deref(ctx.VarName), 1)
@@ -173,7 +173,7 @@ func (g GeneratorVerify) NamedType(r *Result, ctx GenerationContext, t *Type) {
 func (g GeneratorVerify) NewConstant(r *Result, specName string, fieldName string, prefix string, value string, format string) Constant {
 	var c Constant
 
-	if expr, ok := StripIfFound(value, LBraces, RBraces); ok {
+	if expr, ok := StripIfFound(value, "{", "}"); ok {
 		vn := VariableName(specName)
 		name := PrependVariableNameAndPrefix(expr, vn, g.SOAPrefix)
 
@@ -208,6 +208,14 @@ func (g GeneratorVerify) Primitive(r *Result, ctx GenerationContext, lit TypeLit
 	vc := MergeVerifyComments(ctx.Comments)
 
 	switch lit.(type) {
+	case Bool:
+		if vc.Required {
+			r.Printf("if !%s {", ctx.Deref(ctx.VarName))
+			{
+				r.Printf(`return errors.New("you must %s")`, fieldDescription)
+			}
+			r.Line("}")
+		}
 	case Int, Float:
 		minConst := g.NewConstant(r, ctx.SpecName, ctx.FieldName, vc.Prefix, vc.Min, "Min%s%s")
 		maxConst := g.NewConstant(r, ctx.SpecName, ctx.FieldName, vc.Prefix, vc.Max, "Max%s%s")
@@ -323,13 +331,13 @@ func (g GeneratorVerify) Struct(r *Result, ctx GenerationContext, s *Struct) {
 	}
 }
 
-func (g GeneratorVerify) StructField(r *Result, ctx GenerationContext, field *StructField, lit TypeLit) {
+func (g GeneratorVerify) StructField(r *Result, ctx GenerationContext, field *StructField, lit ForeignTypeLit) {
 	for _, comment := range field.Comments {
 		if _, ok := comment.(VerifyComment); ok {
 			if g.SOA {
 				ctx = ctx.WithVar("%s[%s]", ctx.VarName, g.LoopVariable)
 			}
-			GenerateStructField(g, r, ctx, field, lit)
+			GenerateStructField(g, r, ctx, field, lit.TypeLit)
 			break
 		}
 	}

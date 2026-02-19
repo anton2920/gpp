@@ -55,7 +55,7 @@ func ParseFillComment(comment string, fc *FillComment) bool {
 	var done bool
 
 	for !done {
-		s, rest, ok := ProperCut(comment, ",", LBracks, RBracks, LBraces, RBraces)
+		s, rest, ok := ProperCut(comment, ",", "[", "]", "{{", "}}", "{", "}")
 		if !ok {
 			done = true
 		}
@@ -77,7 +77,7 @@ func ParseFillComment(comment string, fc *FillComment) bool {
 				switch lval {
 				case "each":
 					var each FillComment
-					rval, _ = StripIfFound(rval, LBracks, RBracks)
+					rval, _ = StripIfFound(rval, "[", "]")
 					if ParseFillComment(rval, &each) {
 						fc.Each = &each
 					}
@@ -106,7 +106,7 @@ func FillWithFunc(r *Result, ctx GenerationContext, fn string) {
 	var ok bool
 
 	v := fmt.Sprintf(`vs.Get("%s")`, ctx.FieldName)
-	if fn, ok = StripIfFound(fn, LBraces, RBraces); !ok {
+	if fn, ok = StripIfFound(fn, "{{", "}}"); !ok {
 		fn = fmt.Sprintf(`%s(%s)`, fn, v)
 	} else {
 		fn = PrependVariableName(stdstrings.Replace(fn, "?", v, 1), VariableName(ctx.SpecName))
@@ -236,8 +236,9 @@ func (g GeneratorFillValues) Struct(r *Result, ctx GenerationContext, s *Struct)
 	GenerateStructFields(g, r, ctx, s.Fields, nil)
 }
 
-func (g GeneratorFillValues) StructField(r *Result, ctx GenerationContext, field *StructField, lit TypeLit) {
-	GenerateStructField(g, r, ctx.WithCast(field.Type.String()), field, lit)
+func (g GeneratorFillValues) StructField(r *Result, ctx GenerationContext, field *StructField, lit ForeignTypeLit) {
+	r.AddImport(lit.ImportPath)
+	GenerateStructField(g, r, ctx.WithCast(field.Type.String()), field, lit.TypeLit)
 }
 
 func (g GeneratorFillValues) StructFieldSkip(field *StructField) bool {
@@ -259,8 +260,8 @@ func (g GeneratorFillValues) Slice(r *Result, ctx GenerationContext, s *Slice) {
 	elem := &s.Element
 	if len(elem.Name) > 0 {
 		lit := ctx.Parser.FindTypeLit(r.File.Imports, strings.Or(elem.Package, r.File.Package), elem.Name)
-		if (lit != nil) && (IsPrimitive(lit)) {
-			GenerateTypeLit(g, r, ctx.WithCast(elem.String()), lit)
+		if (lit.TypeLit != nil) && (IsPrimitive(lit.TypeLit)) {
+			GenerateTypeLit(g, r, ctx.WithCast(elem.String()), lit.TypeLit)
 			return
 		}
 	}

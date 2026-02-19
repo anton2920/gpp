@@ -36,9 +36,9 @@ func (g GeneratorEncodingJSONSerialize) Struct(r *Result, ctx GenerationContext,
 	r.Line("s.ObjectEnd()")
 }
 
-func (g GeneratorEncodingJSONSerialize) StructField(r *Result, ctx GenerationContext, field *StructField, lit TypeLit) {
+func (g GeneratorEncodingJSONSerialize) StructField(r *Result, ctx GenerationContext, field *StructField, lit ForeignTypeLit) {
 	r.Printf("s.Key(`%s`)", ctx.FieldName)
-	GenerateStructField(g, r, ctx.WithCast(LiteralName(lit)), field, lit)
+	GenerateStructField(g, r, ctx.WithCast(LiteralName(lit.TypeLit)), field, lit.TypeLit)
 }
 
 func (g GeneratorEncodingJSONSerialize) StructFieldSkip(field *StructField) bool {

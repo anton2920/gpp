@@ -59,7 +59,7 @@ func Fatalf(format string, args ...interface{}) {
 }
 
 func ShouldAdd(path string) bool {
-	return ((strings.EndsWith(path, ".go")) || strings.EndsWith(path, ".gox")) && (strings.FindSubstring(path, GeneratedSuffix) == -1) && (strings.FindSubstring(path, "_gox") == -1)
+	return ((strings.EndsWith(path, ".go")) || (strings.EndsWith(path, ".gox"))) && (strings.FindSubstring(path, GeneratedSuffix) == -1) && (strings.FindSubstring(path, "_gox") == -1)
 }
 
 func PopulateFileSet(fs *token.FileSet, paths []string) error {
@@ -109,6 +109,10 @@ func FindPackagePath(is Imports, packageName string) string {
 	return ""
 }
 
+func GOPATH() string {
+	return strings.Or(os.Getenv("GOPATH"), filepath.Join(os.Getenv("HOME"), "go"))
+}
+
 func ResolvePackagePath(path string) string {
 	/* Resolve order:
 	1. $GOROOT/src
@@ -122,7 +126,7 @@ func ResolvePackagePath(path string) string {
 		return test
 	}
 
-	gopath := strings.Or(os.Getenv("GOPATH"), filepath.Join(os.Getenv("HOME"), "go"))
+	gopath := GOPATH()
 	for {
 		part, rest, ok := strings.Cut(gopath, ":")
 		test := filepath.Join(part, "src", path)
@@ -138,6 +142,29 @@ func ResolvePackagePath(path string) string {
 	}
 
 	return ""
+}
+
+func GetPackageImportPathFromFilepath(fp string) string {
+	/* Search order:
+	1. $GOROOT/src
+	2. $GOPATH/src
+	3. $GOPATH/pkg/mod -- not implemented
+	*/
+	if path, ok := StripIfFound(fp, filepath.Join(runtime.GOROOT(), "src")+"/", "/"+filepath.Base(fp)); ok {
+		return path
+	}
+
+	gopath := GOPATH()
+	for {
+		part, rest, ok := strings.Cut(gopath, ":")
+		if path, ok := StripIfFound(fp, filepath.Join(part, "src")+"/", "/"+filepath.Base(fp)); ok {
+			return path
+		}
+		if !ok {
+			return ""
+		}
+		gopath = rest
+	}
 }
 
 func main() {
@@ -168,16 +195,19 @@ func main() {
 			return false
 		}
 
-		p.Packages[file.Package] = append(p.Packages[file.Package], file)
+		pkg := p.Packages[file.Package]
+		pkg.ImportPath = GetPackageImportPathFromFilepath(f.Name())
+		pkg.Files = append(pkg.Files, file)
+		p.Packages[file.Package] = pkg
 		return true
 	})
 	if p.Error != nil {
 		Fatalf("%v", p.Error)
 	}
 
-	for _, files := range p.Packages {
-		for i := 0; i < len(files); i++ {
-			file := &files[i]
+	for _, pkg := range p.Packages {
+		for i := 0; i < len(pkg.Files); i++ {
+			file := &pkg.Files[i]
 			fileName := file.Name
 
 			r := Result{File: file, Buffer: new(bytes.Buffer)}

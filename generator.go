@@ -31,7 +31,7 @@ type Generator interface {
 	Primitive(r *Result, ctx GenerationContext, lit TypeLit)
 
 	Struct(r *Result, ctx GenerationContext, s *Struct)
-	StructField(r *Result, ctx GenerationContext, field *StructField, lit TypeLit)
+	StructField(r *Result, ctx GenerationContext, field *StructField, lit ForeignTypeLit)
 	StructFieldSkip(field *StructField) bool
 
 	Array(r *Result, ctx GenerationContext, a *Array)
@@ -98,7 +98,7 @@ func PrependVariableName(s string, vn string) string {
 
 func Insert(r *Result, ctx GenerationContext, inserts []string) {
 	for _, insert := range inserts {
-		if insert, ok := StripIfFound(insert, LBraces, RBraces); ok {
+		if insert, ok := StripIfFound(insert, "{{", "}}"); ok {
 			lines := stdstrings.Split(PrependVariableName(insert, VariableName(ctx.SpecName)), "\n")
 			tabs := r.Tabs
 			for i := 0; i < len(lines); i++ {
@@ -214,10 +214,10 @@ func GenerateStructFields(g Generator, r *Result, ctx GenerationContext, fields 
 		ctx.FieldName = strings.Or(field.Name, field.Type.Name)
 		name := fmt.Sprintf("%s.%s", ctx.VarName, ctx.FieldName)
 
-		var lit TypeLit
+		var lit ForeignTypeLit
 		if (field.Type.Literal == nil) && (len(field.Type.Name) > 0) {
 			lit = ctx.Parser.FindTypeLit(r.File.Imports, strings.Or(field.Type.Package, r.File.Package), field.Type.Name)
-			if s, ok := lit.(Struct); ok {
+			if s, ok := lit.TypeLit.(Struct); ok {
 				if len(field.Name) == 0 {
 					for i := 0; i < len(s.Fields); i++ {
 						f := &s.Fields[i]
@@ -251,8 +251,8 @@ func GenerateStructField(g Generator, r *Result, ctx GenerationContext, field *S
 func GenerateArrayElement(g Generator, r *Result, ctx GenerationContext, elem *Type) {
 	if len(elem.Name) > 0 {
 		lit := ctx.Parser.FindTypeLit(r.File.Imports, strings.Or(elem.Package, r.File.Package), elem.Name)
-		if (lit != nil) && (IsPrimitive(lit)) {
-			GenerateTypeLit(g, r, ctx.WithCast(lit.String()), lit)
+		if (lit.TypeLit != nil) && (IsPrimitive(lit.TypeLit)) {
+			GenerateTypeLit(g, r, ctx.WithCast(lit.TypeLit.String()), lit.TypeLit)
 			return
 		}
 	}

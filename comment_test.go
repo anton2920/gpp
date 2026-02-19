@@ -27,20 +27,20 @@ func TestProperCut(t *testing.T) {
 
 		/* Set 3: InsertBefore={{if true { println("TRUE") }}}; verify: InsertAfter={{ if false {} else {println("FALSE!")}}} */
 		{
-			{`InsertBefore={{if true { println("TRUE"); }}}; verify: InsertAfter={{ if false {} else {println("FALSE!")}}}`, ";", LBraces, RBraces, `InsertBefore={{if true { println("TRUE"); }}}`, ` verify: InsertAfter={{ if false {} else {println("FALSE!")}}}`, true},
-			{`verify: InsertAfter={{ if false {} else {println("FALSE!")}}}`, ";", LBraces, RBraces, `verify: InsertAfter={{ if false {} else {println("FALSE!")}}}`, "", false},
+			{`InsertBefore={{if true { println("TRUE"); }}}; verify: InsertAfter={{ if false {} else {println("FALSE!")}}}`, ";", "{{", "}}", `InsertBefore={{if true { println("TRUE"); }}}`, ` verify: InsertAfter={{ if false {} else {println("FALSE!")}}}`, true},
+			{`verify: InsertAfter={{ if false {} else {println("FALSE!")}}}`, ";", "{{", "}}", `verify: InsertAfter={{ if false {} else {println("FALSE!")}}}`, "", false},
 		},
 
 		/* Set 4: MinLength=1, Each=[[Min={{0}}, Max={{len(.Answers)}}]] */
 		{
-			{`MinLength=1, Each=[[Min={{0}}, Max={{len(.Answers)}}]]`, ",", LBracks, RBracks, `MinLength=1`, ` Each=[[Min={{0}}, Max={{len(.Answers)}}]]`, true},
-			{`Each=[[Min={{0}}, Max={{len(.Answers)}}]]`, ",", LBracks, RBracks, `Each=[[Min={{0}}, Max={{len(.Answers)}}]]`, "", false},
+			{`MinLength=1, Each=[[Min={{0}}, Max={{len(.Answers)}}]]`, ",", "[[", "]]", `MinLength=1`, ` Each=[[Min={{0}}, Max={{len(.Answers)}}]]`, true},
+			{`Each=[[Min={{0}}, Max={{len(.Answers)}}]]`, ",", "[[", "]]", `Each=[[Min={{0}}, Max={{len(.Answers)}}]]`, "", false},
 		},
 
 		/* TODO(anton2920): this set doesn't work! */
 		/* Set 5: {{ {for i := 0; i < 10; i++ {println(i)}}; {println("HELLO!")} }}; Value2 */
 		{
-			{`{{ {for i := 0; i < 10; i++ {println(i)}}; {println("HELLO!")} }}; Value2`, ";", LBraces, RBraces, `{{ {for i := 0; i < 10; i++ {println(i)}}; {println("HELLO!")} }}`, "Value2", true},
+			{`{{ {for i := 0; i < 10; i++ {println(i)}}; {println("HELLO!")} }}; Value2`, ";", "{{", "}}", `{{ {for i := 0; i < 10; i++ {println(i)}}; {println("HELLO!")} }}`, "Value2", true},
 		},
 	}
 	for i, samples := range sets[:len(sets)-1] {

@@ -17,7 +17,7 @@ func (g GeneratorGOX) Body(r *Result, ctx GenerationContext, t *Type)          {
 func (g GeneratorGOX) NamedType(r *Result, ctx GenerationContext, t *Type)     {}
 func (g GeneratorGOX) Primitive(r *Result, ctx GenerationContext, lit TypeLit) {}
 func (g GeneratorGOX) Struct(r *Result, ctx GenerationContext, s *Struct)      {}
-func (g GeneratorGOX) StructField(r *Result, ctx GenerationContext, field *StructField, lit TypeLit) {
+func (g GeneratorGOX) StructField(r *Result, ctx GenerationContext, field *StructField, lit ForeignTypeLit) {
 }
 func (g GeneratorGOX) StructFieldSkip(field *StructField) bool {
 	return false
@@ -62,7 +62,7 @@ func (attrs Attributes) Get(key string) QuotedString {
 
 var GOXGlobalTheme *GOXComment
 
-var IntAttributes = []string{"min", "max", "minlength", "maxlength", "width", "height", "x", "y", "fontSize", "fontWeight", "strokeWidth", "cx", "cy", "r", "rx", "x1", "x2", "y1", "y2"}
+var IntAttributes = []string{"min", "max", "minlength", "maxlength", "width", "height", "x", "y", "fontSize", "fontWeight", "strokeWidth", "cx", "cy", "r", "rx", "x1", "x2", "y1", "y2", "rows", "cols"}
 
 var AppendAttributes = []string{"class", "style"}
 
@@ -128,7 +128,7 @@ func MergeGOXComments(comments []Comment) GOXComment {
 func ParseGOXComment(comment string, gc *GOXComment) bool {
 	var done bool
 	for !done {
-		s, rest, ok := ProperCut(comment, ",", LBraces, RBraces)
+		s, rest, ok := ProperCut(comment, ",", "{{", "}}")
 		if !ok {
 			done = true
 		}
@@ -149,7 +149,7 @@ func ParseGOXComment(comment string, gc *GOXComment) bool {
 		} else {
 			switch lval {
 			case "theme":
-				rval, ok := StripIfFound(strings.TrimSpace(rval), LBraces, RBraces)
+				rval, ok := StripIfFound(strings.TrimSpace(rval), "{{", "}}")
 				if ok {
 					var done bool
 					for !done {

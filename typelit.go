@@ -12,6 +12,11 @@ type TypeLit interface {
 	String() string
 }
 
+type ForeignTypeLit struct {
+	ImportPath string
+	TypeLit    TypeLit
+}
+
 type Array struct {
 	Size    string
 	Element Type
