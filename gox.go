@@ -485,7 +485,13 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 							EndStringBlock(r)
 							in = false
 						}
-						r.RemoveLastNewline().Line(value)
+						r.RemoveLastNewline()
+
+						lines := stdstrings.Split(value, "\n")
+						for i := 0; i < len(lines); i++ {
+							line := lines[i]
+							r.Line(strings.TrimSpace(line))
+						}
 					} else if value, ok := StripIfFound(value, "{", "}"); ok {
 						InsertContents(r, QuotedString{Value: strings.TrimSpace(value), Quoted: false, Present: true}, gc.DoNotOptimize, &in, withoutLocalization, withoutEscaping)
 					}
@@ -597,7 +603,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 							if !CustomTag(otag) {
 								Warnf("unhandled %q", otag)
 							} else {
-								if strings.EndsWith(otag, "s") {
+								if (strings.EndsWith(otag, "s")) || (strings.EndsWith(otag, "s2")) {
 									if nattrblocks > 0 {
 										nattrblocks--
 										r.RemoveLastNewline().Line("}")
@@ -635,7 +641,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 									EndStringBlock(r)
 									in = false
 								}
-								if strings.EndsWith(otag, "s") {
+								if (strings.EndsWith(otag, "s")) || (strings.EndsWith(otag, "s2")) {
 									r.RemoveEmptyStringBlock().RemoveLastNewline().Line("}")
 								}
 								r.RemoveEmptyStringBlock().Printf(`%s(h)`, name).Line("")
@@ -770,10 +776,11 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 						if !CustomTag(otag) {
 							r.WithoutTabs().Printf("<%s>", tag).Backspace()
 						} else {
+							var selfClosed bool
 							var name string
 
 							if (strings.EndsWith(otag, "/")) || (strings.EndsWith(rest, "/")) {
-								otag, _ = StripIfFound(otag, "", "/")
+								otag, selfClosed = StripIfFound(otag, "", "/")
 								name = fmt.Sprintf(`Display%s`, otag)
 							} else {
 								name = fmt.Sprintf(`Display%sBegin`, otag)
@@ -788,7 +795,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 									in = false
 								}
 								r.RemoveEmptyStringBlock().Printf("%s(h)", name)
-								if strings.EndsWith(otag, "s") {
+								if (!selfClosed) && ((strings.EndsWith(otag, "s")) || (strings.EndsWith(otag, "s2"))) {
 									createBlock = true
 								}
 								customTag = true
