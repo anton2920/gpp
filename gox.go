@@ -718,10 +718,11 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 								Warnf("unhandled %q", otag)
 								continue
 							} else {
+								var selfClosed bool
 								var name string
 
 								if (strings.EndsWith(otag, "/")) || (strings.EndsWith(rest, "/")) {
-									otag, _ = StripIfFound(otag, "", "/")
+									otag, selfClosed = StripIfFound(otag, "", "/")
 									name = fmt.Sprintf(`Display%s`, otag)
 								} else {
 									name = fmt.Sprintf(`Display%sBegin`, otag)
@@ -732,7 +733,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 									GenerateGOX(r, p, fn)
 								} else {
 									r.Printf("%s(h)", name)
-									if strings.EndsWith(otag, "s") {
+									if (!selfClosed) && (strings.EndsWith(otag, "s") || (strings.EndsWith(otag, "s2"))) {
 										createBlock = true
 									}
 									customTag = true
@@ -799,6 +800,9 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 				r.Tabs = 0
 
 				s, selfClosed = StripIfFound(rest, "", "/")
+				if (CustomTag(otag)) && (selfClosed) {
+					createBlock = false
+				}
 
 				var keys []string
 				attrs := make(Attributes)
