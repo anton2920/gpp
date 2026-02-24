@@ -187,7 +187,9 @@ func (g GeneratorVerify) NewConstant(r *Result, specName string, fieldName strin
 		} else if strings.StartsWith(fieldName, "Max") {
 			fieldName = fieldName[len("Max"):]
 		}
-		fieldName = Singular(fieldName)
+		if (g.SOA) || (len(g.LoopVariable) > 0) {
+			fieldName = Singular(fieldName)
+		}
 		c = r.AddConstant(fmt.Sprintf(format, strings.Or(prefix, specName), fieldName), value)
 	}
 
@@ -356,6 +358,7 @@ func (g GeneratorVerify) Array(r *Result, ctx GenerationContext, a *Array) {
 	i := ctx.LoopVar()
 	r.Printf("for %s := 0; %s < len(%s); %s++ {", i, i, ctx.VarName, i)
 	{
+		g.LoopVariable = i
 		GenerateArrayElement(g, r, ctx.WithVar("%s[%s]", ctx.VarName, i), &a.Element)
 		if vc.Unique {
 			fieldDescription := FieldName2Description(ctx.FieldName)
@@ -381,8 +384,8 @@ func (g GeneratorVerify) Slice(r *Result, ctx GenerationContext, s *Slice) {
 		fieldDescription := FieldName2Description(ctx.FieldName)
 		vc := MergeVerifyComments(ctx.Comments)
 
-		minLengthConst := g.NewConstant(r, ctx.SpecName, ctx.FieldName, vc.Prefix, vc.MinLength, "Min%s%ssLen")
-		maxLengthConst := g.NewConstant(r, ctx.SpecName, ctx.FieldName, vc.Prefix, vc.MaxLength, "Max%s%ssLen")
+		minLengthConst := g.NewConstant(r, ctx.SpecName, Singular(ctx.FieldName), vc.Prefix, vc.MinLength, "Min%s%ssLen")
+		maxLengthConst := g.NewConstant(r, ctx.SpecName, Singular(ctx.FieldName), vc.Prefix, vc.MaxLength, "Max%s%ssLen")
 		if len(vc.MinLength) > 0 {
 			r.AddImport("fmt")
 			r.Printf("if len(%s) < %s {", ctx.VarName, minLengthConst.Name)
