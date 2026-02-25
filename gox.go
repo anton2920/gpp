@@ -913,7 +913,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 							case "checkbox":
 								r.Backspace(len(`h.Input2("")`)).Line("h.Checkbox2()").Backspace()
 							case "submit":
-								r.Backspace(len(`h.Input2("")`)).Printf(`h.Button2(%s)`, attrs.Get("value")).Backspace()
+								r.Backspace(len(`h.Input2("")`)).Printf(`h.Button2(h.L(%s))`, attrs.Get("value")).Backspace()
 							}
 						}
 					}
@@ -1019,5 +1019,5 @@ func GenerateGOXEx(r *Result, p *Parser, fn *Func, in bool, withoutTheme bool, w
 
 func GenerateGOX(r *Result, p *Parser, fn *Func) {
 	GenerateGOXEx(r, p, fn, false, false, false, false)
-	r.RemoveEmptyStringBlock()
+	r.RemoveEmptyStringBlock().RemoveLastNewline()
 }
