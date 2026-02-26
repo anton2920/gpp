@@ -352,7 +352,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 	const withoutThemeTag = "notheme"
 	const cutset = "\t\n"
 
-	var nattrblocks, ncodeblocks int
+	var nattrblocks, ncodeblocks, stmtStartLevel int
 	var codeBlock string
 
 	gc := MergeGOXComments(comments)
@@ -413,6 +413,8 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 						if strings.StartsWith(text, "else") {
 							r.Backspace(1).Buffer.WriteRune(' ')
 							r.Tabs = 0
+						} else {
+							stmtStartLevel = nattrblocks
 						}
 						r.Line(text[:end+1])
 						r.Tabs = tabs + 1
@@ -458,6 +460,10 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 						if in {
 							EndStringBlock(r)
 							in = false
+						}
+						if nattrblocks > stmtStartLevel {
+							r.RemoveLastNewline().Line("}")
+							nattrblocks--
 						}
 						r.RemoveLastNewline().Line("}")
 						ncodeblocks--
@@ -706,7 +712,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 							fallthrough
 						case "link", "path":
 							r.Printf(`h.%s2("")`, stdstrings.Title(tag))
-						case "error":
+						case "error", "pager":
 							r.Printf(`h.%s2(nil)`, stdstrings.Title(tag))
 						case "svg":
 							createBlock = true
@@ -766,7 +772,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 								r.WithoutTabs().Printf(`<script src=%s></script>`, v.Get("src")).Backspace()
 							}
 						}
-					case "error":
+					case "error", "pager":
 						if in {
 							EndStringBlock(r)
 							in = false
@@ -807,7 +813,7 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 				r.Tabs = 0
 
 				s, selfClosed = StripIfFound(rest, "", "/")
-				if (CustomTag(otag)) && (selfClosed) {
+				if (customTag) && (selfClosed) {
 					createBlock = false
 				}
 
@@ -920,6 +926,8 @@ func GenerateGOXBody(r *Result, p *Parser, body string, comments []Comment, in b
 					switch tag {
 					case "error":
 						r.Backspace(len(`nil)`)+bools.ToInt(!gc.DoNotOptimize)).Printf(`%s)`, attrs.Get("err")).Backspace()
+					case "pager":
+						r.Backspace(len(`nil)`)+bools.ToInt(!gc.DoNotOptimize)).Printf(`%s)`, attrs.Get("pagination")).Backspace()
 					}
 
 					if customTag {

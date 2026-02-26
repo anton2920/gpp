@@ -36,8 +36,9 @@ var groups [][]string
 var user *User
 
 //gpp:generate: gox
-//gpp:gox: -C
+//gpp:gox: -C, -N
 //gpp:gox: Theme={{Body: {Style: "max-width: 1100px; margin 0px auto;"}, Select: {Class: "form-select form-select-sm"}}}
+//gpp:gox: Theme={{Button: {Class: "btn"}}}
 func TestPage(h *html.HTML, i int) {
 	<!DOCTYPE html>
 
@@ -49,6 +50,8 @@ func TestPage(h *html.HTML, i int) {
 		<Header title="Hello, world!"/>
 
 		<h1>Hello!</h1>
+
+		<button></button>
 
 		<div aria-label="whatever">
 			<h1>
